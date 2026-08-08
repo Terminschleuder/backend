@@ -57,3 +57,22 @@ def test_city_ordering_by_population(db, api_client):
     response = api_client.get("/api/cities/?ordering=-population", format="json")
     assert response.status_code == 200
     assert [c["name"] for c in _results(response)] == ["Berlin", "Hamburg", "Vienna"]
+
+
+def test_city_all_returns_unpaginated_list(db, api_client):
+    _make_cities()
+    response = api_client.get("/api/cities/all/", format="json")
+    assert response.status_code == 200
+    # Unpaginated: the body is a bare list, not the {count, results} envelope.
+    assert isinstance(response.data, list)
+    assert {c["name"] for c in response.data} == {"Berlin", "Hamburg", "Vienna"}
+    assert response.data[0]["slug"]
+
+
+def test_city_page_size_param(db, api_client):
+    _make_cities()
+    response = api_client.get("/api/cities/?page_size=2", format="json")
+    assert response.status_code == 200
+    assert response.data["count"] == 3
+    assert len(response.data["results"]) == 2
+    assert response.data["next"] is not None

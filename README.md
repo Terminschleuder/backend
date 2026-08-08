@@ -157,7 +157,8 @@ All API routes live under `/api/`; auth routes under `/api/auth/`.
 
 | Method        | Endpoint                              | Auth            | Purpose                          |
 | ------------- | ------------------------------------- | --------------- | -------------------------------- |
-| GET           | `/api/cities/`                        | public          | city catalog (search/filter/order) |
+| GET           | `/api/cities/`                        | public          | city catalog (search/filter/order; `?page_size=`) |
+| GET           | `/api/cities/all/`                    | public          | full catalog, unpaginated (one response) |
 | GET           | `/api/cities/<id>/`                   | public          | city detail (with lat/lon)       |
 | GET           | `/api/events/?near_city=<slug>`       | public          | events near a city (with distance) |
 | GET           | `/api/events/?lat=&lon=&radius_km=`   | public          | proximity search (with distance) |
@@ -190,10 +191,18 @@ curl 'http://localhost:8000/api/events/?near_city=berlin-de'
 curl 'http://localhost:8000/api/events/?near_city=berlin-de&radius_km=10'
 ```
 
+Fetching the whole catalog (e.g. to cache an offline pick-list / autocomplete):
+
+```bash
+curl 'http://localhost:8000/api/cities/all/'            # → 2131 cities, one unpaginated list
+curl 'http://localhost:8000/api/cities/all/?country_code=DE'   # filters apply to /all/ too
+curl 'http://localhost:8000/api/cities/?page_size=1000'  # paginated, capped at 1000/page
+```
+
 Each city exposes `latitude`, `longitude`, `default_radius_km`, `population`, `country`,
 `country_code`, and a unique `slug` (used as `near_city`). Seeded with all European cities
-≥ 50 000 population via `python manage.py seed_cities`. Re-generate the dataset (offline)
-with `python3 scripts/build_european_cities_fixture.py`.
+≥ 50 000 population (**2131 cities**) via `python manage.py seed_cities`. Re-generate the
+dataset (offline) with `python3 scripts/build_european_cities_fixture.py`.
 
 ### Proximity search (raw coordinates)
 
