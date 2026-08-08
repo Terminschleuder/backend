@@ -21,7 +21,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # The app needs GDAL/GEOS/PROJ (bundled in the image) and PostGIS in the DB.
       # We build the compose stack and run everything inside the containers — no
