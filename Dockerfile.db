@@ -1,7 +1,7 @@
 # PostGIS database image — built from the official multi-arch postgres image
 # plus the PostGIS apt package. Native on arm64 (Apple Silicon) and amd64,
 # unlike the postgis/postgis image which is amd64-only.
-FROM postgres:17
+FROM postgres:18
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         postgresql-17-postgis-3 \
