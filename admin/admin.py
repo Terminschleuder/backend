@@ -146,7 +146,9 @@ class APIKeyAdmin(APIKeyAdminBase):
 
 class EventAdminEnhanced(EventAdmin):
     list_filter = tuple(EventAdmin.list_filter) + ("owner_group", "created_by")
-    readonly_fields = ("created_at", "updated_at")
+    # Extend (don't shadow) EventAdmin.readonly_fields so the lat/lon view
+    # fields inherited from the GIS admin still show on the change form.
+    readonly_fields = tuple(EventAdmin.readonly_fields) + ("created_at", "updated_at")
 
     def save_model(self, request, obj, form, change):
         if not change and obj.created_by_id is None:

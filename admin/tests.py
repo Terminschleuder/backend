@@ -7,8 +7,15 @@ from django.test import RequestFactory
 from django.urls import reverse
 
 from accounts.models import APIKey, User
-from admin.admin import APIKeyAdmin, CityAdminEnhanced, ServiceAccountAdmin
+from admin.admin import (
+    APIKeyAdmin,
+    CityAdminEnhanced,
+    EventAdminEnhanced,
+    ServiceAccountAdmin,
+)
 from admin.models import ServiceAccount
+from events.admin import VenueAdmin
+from events.models import Event, Venue
 from locations.models import City
 
 
@@ -137,3 +144,64 @@ def test_city_admin_lat_lon_methods_handle_missing_location():
     admin_instance = CityAdminEnhanced(City, None)
     assert admin_instance.latitude(city) is None
     assert admin_instance.longitude(city) is None
+
+
+# --- Venues & events: same GIS map widget + lat/lon columns -----------------
+
+
+@pytest.mark.django_db
+def test_venue_admin_uses_gis_model_admin_and_exposes_lat_lon():
+    assert issubclass(VenueAdmin, GISModelAdmin)
+    for col in ("latitude", "longitude"):
+        assert col in VenueAdmin.list_display
+        assert col in VenueAdmin.readonly_fields
+
+
+@pytest.mark.django_db
+def test_venue_admin_lat_lon_methods_read_location_point():
+    venue = Venue.objects.create(name="Hacklab", city="Berlin", location="POINT(13.405 52.52)")
+    admin_instance = VenueAdmin(Venue, None)
+    assert admin_instance.latitude(venue) == round(52.52, 5)
+    assert admin_instance.longitude(venue) == round(13.405, 5)
+
+
+@pytest.mark.django_db
+def test_venue_admin_lat_lon_methods_handle_null_location():
+    # Venue.location is nullable, so a saved row with no point exercises the guard.
+    venue = Venue.objects.create(name="Nowhere Hall")
+    admin_instance = VenueAdmin(Venue, None)
+    assert admin_instance.latitude(venue) is None
+    assert admin_instance.longitude(venue) is None
+
+
+@pytest.mark.django_db
+def test_event_admin_uses_gis_model_admin_and_exposes_lat_lon():
+    # EventAdminEnhanced is the registered class; it inherits EventAdmin's
+    # GISModelAdmin base and lat/lon columns, and must keep lat/lon in
+    # readonly_fields (it extends rather than shadows the parent).
+    assert issubclass(EventAdminEnhanced, GISModelAdmin)
+    for col in ("latitude", "longitude"):
+        assert col in EventAdminEnhanced.list_display
+        assert col in EventAdminEnhanced.readonly_fields
+
+
+@pytest.mark.django_db
+def test_event_admin_lat_lon_methods_read_location_point():
+    from django.utils import timezone
+
+    event = Event.objects.create(
+        title="Berlin Meetup", starts_at=timezone.now(), location="POINT(13.405 52.52)"
+    )
+    admin_instance = EventAdminEnhanced(Event, None)
+    assert admin_instance.latitude(event) == round(52.52, 5)
+    assert admin_instance.longitude(event) == round(13.405, 5)
+
+
+@pytest.mark.django_db
+def test_event_admin_lat_lon_methods_handle_null_location():
+    from django.utils import timezone
+
+    event = Event.objects.create(title="Unlocated", starts_at=timezone.now())
+    admin_instance = EventAdminEnhanced(Event, None)
+    assert admin_instance.latitude(event) is None
+    assert admin_instance.longitude(event) is None

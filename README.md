@@ -283,9 +283,11 @@ It covers all the operator tasks:
   service-account powers.
 - **API keys** — issue a long-lived key; the **raw key is shown once** (only the prefix/hash
   are stored). Revoke by editing `revoked`. Raw keys are never listed.
-- **Cities** — maintain the gazetteer (add/edit, toggle `is_active`). Bulk re-seed stays the
-  `seed_cities` command.
-- **Events / venues / organizers / categories** — full CRUD; new events default
+- **Cities** — maintain the gazetteer (add/edit, toggle `is_active`). The list shows read-only
+  `latitude`/`longitude` columns and `location` is edited via the PostGIS map widget. Bulk
+  re-seed stays the `seed_cities` command.
+- **Events / venues / organizers / categories** — full CRUD; events and venues show read-only
+  `latitude`/`longitude` and edit `location` via the PostGIS map widget. New events default
   `created_by` to the operator and protect `created_at`/`updated_at`.
 
 > The backoffice uses **session auth + `is_staff`** on the same custom `User` the API uses —
@@ -305,6 +307,7 @@ model, complete API reference, authentication, and geospatial/cities — see the
 | [docs/api-reference.md](docs/api-reference.md) | Every endpoint: params, examples, status codes, errors |
 | [docs/authentication.md](docs/authentication.md) | JWT, API keys, service accounts, permissions, ownership |
 | [docs/geospatial.md](docs/geospatial.md) | PostGIS storage, proximity, `?near_city=`, city catalog & seeding |
+| [docs/admin.md](docs/admin.md) | The backoffice `AdminSite`: service-account & API-key issuance, group/city/event maintenance |
 
 ## Production notes
 

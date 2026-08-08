@@ -26,8 +26,8 @@ operators don't have to remember an `/admin/` prefix.
 | **Groups** | Maintain Django groups & permissions. Groups drive event `owner_group` and service-account powers (see [Authentication](authentication.md)). |
 | **API keys** | Issue a long-lived key → the **raw key is shown once** (only prefix + sha256 hash stored). Revoke by editing `revoked`. Raw keys are never listed. |
 | **Cities** | Maintain the gazetteer: add/edit, toggle `is_active`. The list shows read-only `latitude`/`longitude` columns (derived from the `location` point); `location` itself is edited via the PostGIS map widget (works inside the container, like venues). Bulk re-seed is still the `seed_cities` command (it touches 2131 rows). See [Geospatial & cities](geospatial.md). |
-| **Events** | Full CRUD. New events default `created_by` to the operator; `created_at`/`updated_at` are read-only. `venue`/`organizer` use autocomplete; `categories` is a filter-horizontal widget. |
-| **Venues / Organizers / Categories** | Full CRUD. `location` is edited via the PostGIS map widget (works inside the container). |
+| **Events** | Full CRUD. The list shows read-only `latitude`/`longitude` columns; `location` is edited via the PostGIS map widget (works inside the container). New events default `created_by` to the operator; `created_at`/`updated_at` are read-only. `venue`/`organizer` use autocomplete; `categories` is a filter-horizontal widget. |
+| **Venues / Organizers / Categories** | Full CRUD. Venues show read-only `latitude`/`longitude` columns and edit `location` via the PostGIS map widget (works inside the container). |
 
 ## Service-account & API-key "shown once" flow
 

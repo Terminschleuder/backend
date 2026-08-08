@@ -40,7 +40,7 @@ Lookups hash the incoming key and compare in constant time (`hmac.compare_digest
 curl -X POST http://localhost:8000/api/auth/api-keys/ \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"name":"outer-client"}'
-# → {…, "raw_key":"AbC123Def456…"}   ← store this; it won't be shown again
+# → {…, "key":"AbC123Def456…"}   ← store this; it won't be shown again
 
 # Use
 curl -H "Authorization: Api-Key <raw-key>" http://localhost:8000/api/events/

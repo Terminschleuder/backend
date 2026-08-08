@@ -349,8 +349,8 @@ curl -X POST http://localhost:8000/api/auth/api-keys/ \
 
 ```json
 { "id": 12, "name": "outer-client", "prefix": "AbC123Def456",
-  "raw_key": "AbC123Def456…<full-key>", "created": "2026-08-08T10:00:00Z",
-  "revoked": false, "expires_at": null }
+  "key": "AbC123Def456…<full-key>", "created": "2026-08-08T10:00:00Z",
+  "expires_at": null }
 ```
 
 Use the raw key as `Authorization: Api-Key <raw-key>`.
