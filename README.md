@@ -17,6 +17,7 @@ authentication** for external and service clients.
 - [Local development & testing](#local-development--testing)
 - [Configuration](#configuration)
 - [API reference](#api-reference)
+- [Documentation](#documentation)
 - [Production notes](#production-notes)
 - [Project structure](#project-structure)
 - [Troubleshooting](#troubleshooting)
@@ -262,6 +263,21 @@ A service account is a normal Django user (so it obtains JWTs / API keys and car
   require `events.add_event`.
 - `PATCH` / `DELETE /api/events/<id>/` — allowed for the **owner** (`created_by`), a member
   of the event's **`owner_group`**, or any holder of the matching model permission.
+
+## Documentation
+
+This README is the quickstart. For the full functional documentation — architecture, data
+model, complete API reference, authentication, and geospatial/cities — see the
+**[docs/](docs/)** folder (GitHub-renderable Markdown + Mermaid diagrams):
+
+| Document | Scope |
+| -------- | ----- |
+| [docs/README.md](docs/README.md) | Documentation index |
+| [docs/architecture.md](docs/architecture.md) | High-level design, container layout, request lifecycle |
+| [docs/data-model.md](docs/data-model.md) | Entities, fields, relationships (ER diagram) |
+| [docs/api-reference.md](docs/api-reference.md) | Every endpoint: params, examples, status codes, errors |
+| [docs/authentication.md](docs/authentication.md) | JWT, API keys, service accounts, permissions, ownership |
+| [docs/geospatial.md](docs/geospatial.md) | PostGIS storage, proximity, `?near_city=`, city catalog & seeding |
 
 ## Production notes
 
