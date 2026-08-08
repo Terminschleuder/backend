@@ -1,131 +1,262 @@
 # terminschleuder
 
-A Django + Django REST Framework backend for serving **local events and meetups**, with
-**PostGIS**-powered geospatial search (find events within *N* km of a location) and
-**service-account / API-key + JWT** authentication for external clients.
+A **Django + Django REST Framework** backend for local events and meetups, featuring
+**PostGIS geospatial search** (events within *N* km of a point) and **JWT + API-key
+authentication** for external and service clients.
 
 > **Status:** `alpha-0.01` — early preview. APIs and data models may change before `1.0`.
+> **License:** Apache-2.0 (see [LICENSE](LICENSE)).
 
 ---
 
-## Features
+## Table of contents
 
-- **Events, venues, organizers, categories** — the core catalog.
-- **Geospatial proximity search** — `?lat=&lon=&radius_km=` returns events within the
-  radius, each annotated with a `distance` (km), ordered nearest-first. Powered by
-  PostGIS `geography` columns + `ST_DWithin`.
-- **Authentication for external clients** — both:
-  - **JWT** (`djangorestframework-simplejwt`) — short-lived access + refresh tokens,
-  - **long-lived API keys** ("app secrets") — sha256-hashed, revocable, expirable.
-- **Service / system users** — non-interactive accounts (flagged `is_service_account`)
-  that carry Django groups & permissions and obtain JWTs / API keys like any user.
-- **Ownership & permissions** — events support an owner (`created_by`) and an
-  `owner_group`; writes are gated by owner / group membership / model permissions.
-  Reads stay public (the catalog).
-- **Management command** — `create_service_account` to provision a system client.
+- [Overview](#overview)
+- [Tech stack](#tech-stack)
+- [Prerequisites](#prerequisites)
+- [Local development & testing](#local-development--testing)
+- [Configuration](#configuration)
+- [API reference](#api-reference)
+- [Production notes](#production-notes)
+- [Project structure](#project-structure)
+- [Troubleshooting](#troubleshooting)
+
+## Overview
+
+terminschleuder serves a catalog of **events, venues, organizers, and categories** with
+geospatial locations, and exposes it through a REST API.
+
+Highlights:
+
+- **Proximity search** — `GET /api/events/?lat=&lon=&radius_km=` returns events within the
+  radius, each annotated with a `distance` (km), ordered nearest-first. Built on PostGIS
+  `geography` columns + `ST_DWithin`.
+- **Two auth mechanisms for external clients:**
+  - **JWT** (simplejwt) — short-lived access + refresh tokens.
+  - **Long-lived API keys** ("app secrets") — sha256-hashed, revocable, expirable.
+- **Service / system users** — non-interactive accounts flagged `is_service_account` that
+  carry Django groups & permissions and obtain JWTs / API keys like any user.
+- **Ownership & permissions** — events have an owner (`created_by`) and an optional
+  `owner_group`; writes are gated by owner / group membership / model permissions. Reads
+  stay public.
+- **`create_service_account` management command** to provision a system client.
 
 ## Tech stack
 
-| Concern        | Choice                                              |
-| -------------- | --------------------------------------------------- |
-| Framework      | Django 6.1 + Django REST Framework 3.18             |
-| Database       | PostgreSQL 17 + **PostGIS** (geospatial)            |
-| Auth           | simplejwt (JWT) + custom hashed API keys            |
-| GIS libs       | GDAL / GEOS / PROJ (bundled in the app image)       |
-| Packaging      | `django-environ` (`DATABASE_URL`), `django-filter` |
-| Tests          | `pytest` + `pytest-django`                          |
-| Runtime        | Docker + Docker Compose                            |
+| Concern    | Choice                                              |
+| ---------- | --------------------------------------------------- |
+| Framework  | Django 6.1 + Django REST Framework 3.18             |
+| Database   | PostgreSQL 17 + **PostGIS** (geospatial)            |
+| Auth       | simplejwt (JWT) + custom hashed API keys            |
+| GIS libs   | GDAL / GEOS / PROJ — **bundled in the app image**   |
+| Config     | `django-environ` (`DATABASE_URL`), `django-filter` |
+| Tests      | `pytest` + `pytest-django`                          |
+| Runtime    | Docker + Docker Compose                            |
 
-> **Why a container?** `django.contrib.gis` needs GDAL/GEOS/PROJ on the host. To keep
-> the host clean and make production a single `docker pull`, the app image bundles the
-> GIS libraries and runs against a PostGIS database container. No host GIS installs.
+> **Why Docker only?** `django.contrib.gis` requires GDAL/GEOS/PROJ on the host. To keep
+> the host clean and make production a single `docker pull`, the app image bundles the GIS
+> libraries and runs against a PostGIS database container. **You cannot run the app
+> directly on the host** (no GIS libs) — all dev and testing happens inside the containers.
 
-## Quick start (Docker)
+## Prerequisites
+
+- **Docker** with the **Compose plugin** (`docker compose version` should print a version).
+- That's it. No Python, Postgres, or GIS libraries need to be installed on the host — the
+  images provide everything.
+
+## Local development & testing
+
+The dev stack runs **PostGIS** (`db`) and **Django's runserver** (`web`) in containers. The
+web service runs migrations automatically and hot-reloads source changes via a bind mount.
+
+### 1. Start the stack
 
 ```bash
-# 1. Build and run db (PostGIS) + web (Django dev server)
 ./start.sh            # = docker compose up --build; stops cleanly on Ctrl-C
-
-# 2. The web service runs migrations automatically, then serves on :8000.
-curl http://127.0.0.1:8000/api/events/
+# …or, equivalently:
+docker compose up --build
 ```
 
-Configuration is self-contained in `docker-compose.yml` for local dev. For production,
-override the env (`SECRET_KEY`, `DATABASE_URL`, `ALLOWED_HOSTS`, `DEBUG=False`) — see
-`.env.example`.
+First run builds both images (the app image installs GDAL/GEOS/PROJ via apt, so expect a
+couple of minutes). Subsequent starts are fast.
 
-### Useful commands (run inside the container)
+### 2. Open the app
+
+The server listens on **http://localhost:8000**.
+
+> **Heads-up:** the bare root path `/` returns **404 by design** — there is no route there.
+> Use one of the mounted prefixes below.
+
+| URL                                  | What it is                              |
+| ------------------------------------ | --------------------------------------- |
+| `http://localhost:8000/admin/`       | Django admin (backoffice)               |
+| `http://localhost:8000/api/`         | API root — lists all event endpoints    |
+| `http://localhost:8000/api/auth/`    | auth endpoints (register/login/me/token) |
+
+`/api/` and the individual collections render DRF's **browsable API** in a browser.
+
+### 3. Create an admin user / seed sample data
+
+In a separate terminal while the stack is running:
 
 ```bash
+# Admin login for /admin/
 docker compose exec web python manage.py createsuperuser
-docker compose exec web python manage.py create_service_account my-bot --group editors
-docker compose exec web python manage.py test          # or: python -m pytest -q
+
+# Optional: a few sample venues, organizers, categories and events
+docker compose exec web python manage.py seed
 ```
 
-## API overview
+### 4. Run the tests
 
-| Method | Endpoint                              | Auth            | Purpose                          |
-| ------ | ------------------------------------- | --------------- | -------------------------------- |
-| GET    | `/api/events/?lat=&lon=&radius_km=`   | public          | proximity search (with distance) |
-| GET    | `/api/events/`                        | public          | list / filter / search events     |
-| POST   | `/api/events/`                         | auth (perm)     | create an event                  |
-| GET/…  | `/api/venues/`, `/api/organizers/`, `/api/categories/` | mixed | catalog + CRUD |
-| POST   | `/api/auth/register/`                 | public          | register a user                  |
-| POST   | `/api/auth/token/`                    | public          | obtain JWT (access + refresh)    |
-| POST   | `/api/auth/token/refresh/`            | public          | refresh JWT                      |
-| GET    | `/api/auth/me/`                        | auth            | current user + groups + perms    |
-| GET/POST | `/api/auth/api-keys/`               | auth            | list / create API keys           |
-| DELETE | `/api/auth/api-keys/<id>/`            | auth            | revoke an API key                |
-
-### Proximity example
+Tests run inside the container against real PostGIS and real auth:
 
 ```bash
-curl 'http://127.0.0.1:8000/api/events/?lat=52.52&lon=13.405&radius_km=10'
+docker compose run --rm web python -m pytest -q
+```
+
+(You can also run an individual file: `docker compose run --rm web python -m pytest events/tests.py -q`.)
+
+### 5. Stop the stack
+
+```bash
+docker compose down            # stops & removes containers; the pgdata volume is kept
+docker compose down -v         # also deletes the database volume (full reset)
+```
+
+`start.sh` also runs `docker compose down` on exit, so Ctrl-C cleans up automatically.
+
+## Configuration
+
+Settings are read from the environment (via `django-environ`). For local dev,
+`docker-compose.yml` sets everything for you — no `.env` required.
+
+Copy `.env.example` to `.env` only if you want to override defaults for a host-based or
+custom setup (`.env` is gitignored and never committed).
+
+| Variable        | Default                                              | Notes                                            |
+| --------------- | ---------------------------------------------------- | ------------------------------------------------ |
+| `SECRET_KEY`    | `django-insecure-change-me`                          | **Set a strong random value in production.**     |
+| `DEBUG`         | `False`                                              | Compose sets `True` for dev.                     |
+| `ALLOWED_HOSTS` | `[]`                                                 | Compose sets `*` for dev.                        |
+| `DATABASE_URL`  | `postgis://terminschleuder:terminschleuder@127.0.0.1:5432/terminschleuder` | Compose overrides to the `db` host. |
+
+JWT access tokens live **15 min**, refresh tokens **7 days**, signed with `SECRET_KEY`.
+
+## API reference
+
+### Base URLs
+
+All API routes live under `/api/`; auth routes under `/api/auth/`.
+
+| Method        | Endpoint                              | Auth            | Purpose                          |
+| ------------- | ------------------------------------- | --------------- | -------------------------------- |
+| GET           | `/api/events/?lat=&lon=&radius_km=`   | public          | proximity search (with distance) |
+| GET / POST    | `/api/events/`                        | public / auth   | list / create events             |
+| GET / PATCH / DELETE | `/api/events/<id>/`             | public / owner  | retrieve / update / delete       |
+| GET / POST    | `/api/venues/`, `/api/organizers/`, `/api/categories/` | mixed | catalog + CRUD        |
+| POST          | `/api/auth/register/`                 | public          | register a user                  |
+| POST          | `/api/auth/token/`                    | public          | obtain JWT (access + refresh)    |
+| POST          | `/api/auth/token/refresh/`            | public          | refresh JWT                      |
+| GET           | `/api/auth/me/`                       | auth            | current user + groups + perms    |
+| GET / POST    | `/api/auth/api-keys/`                 | auth            | list / create API keys           |
+| DELETE        | `/api/auth/api-keys/<id>/`            | auth            | revoke an API key                |
+
+### Proximity search
+
+```bash
+curl 'http://localhost:8000/api/events/?lat=52.52&lon=13.405&radius_km=10'
 # → events within 10 km of Berlin, each with a "distance" (km), nearest first
 ```
 
-### Auth example
+All three of `lat`, `lon`, `radius_km` must be supplied together (otherwise HTTP 400).
+Events without a location are excluded from proximity results.
+
+### Authentication
+
+**JWT** — obtain, then send as a Bearer token:
 
 ```bash
-# JWT
-TOKEN=$(curl -s -X POST http://127.0.0.1:8000/api/auth/token/ \
+TOKEN=$(curl -s -X POST http://localhost:8000/api/auth/token/ \
   -H 'Content-Type: application/json' \
   -d '{"username":"my-bot","password":"<secret>"}' | jq -r .access)
-curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8000/api/auth/me/
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/api/auth/me/
+```
 
-# API key ("app secret") — raw key returned once on creation
-curl -X POST http://127.0.0.1:8000/api/auth/api-keys/ \
+**API key** ("app secret") — the raw key is returned **only once**, at creation:
+
+```bash
+# Create a key (requires an authenticated request, e.g. with the JWT above)
+curl -X POST http://localhost:8000/api/auth/api-keys/ \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"name":"outer-client"}'
-curl -H "Authorization: Api-Key <raw-key>" http://127.0.0.1:8000/api/events/
+
+# Use it
+curl -H "Authorization: Api-Key <raw-key>" http://localhost:8000/api/events/
 ```
+
+Revoking: `DELETE /api/auth/api-keys/<id>/`. Listing never exposes the raw key.
+
+### Service accounts & permissions
+
+```bash
+# Provision a system client (prints a one-time secret); add it to a group for perms
+docker compose exec web python manage.py create_service_account my-bot --group editors
+```
+
+A service account is a normal Django user (so it obtains JWTs / API keys and carries groups
+& permissions), flagged non-interactive. To let it **create events**, grant the group
+`events.add_event`; for update/delete, grant `events.change_event` / `events.delete_event`.
+
+### Ownership model
+
+- `GET` (all collections) — **public** (the catalog).
+- `POST /api/events/` — authenticated. Human users may create freely; service accounts
+  require `events.add_event`.
+- `PATCH` / `DELETE /api/events/<id>/` — allowed for the **owner** (`created_by`), a member
+  of the event's **`owner_group`**, or any holder of the matching model permission.
+
+## Production notes
+
+The app image is production-shaped: its default `CMD` runs **gunicorn** (`config.wsgi`).
+The compose override only swaps in `runserver` for dev. For production:
+
+- Set a strong `SECRET_KEY`, `DEBUG=False`, real `ALLOWED_HOSTS`, and a production
+  `DATABASE_URL`.
+- Serve behind a reverse proxy (TLS, static files, etc.) — out of scope here.
+- Pull the image rather than building on the host (the constraint this project was built
+  around).
 
 ## Project structure
 
 ```
 .
 ├── manage.py
-├── docker-compose.yml        # db (PostGIS) + web (Django)
-├── Dockerfile                # app image: bundles GDAL/GEOS/PROJ + gunicorn
+├── docker-compose.yml        # db (PostGIS) + web (Django dev server)
+├── Dockerfile                # app image: GDAL/GEOS/PROJ + gunicorn
 ├── Dockerfile.db             # postgres:17 + postgis (arm64-friendly build)
 ├── requirements.txt
-├── config/                   # Django project settings/urls/wsgi
+├── start.sh                  # thin `docker compose up` wrapper
+├── config/                   # Django project: settings, urls, wsgi, asgi
 ├── events/                   # events, venues, organizers, categories + proximity
 ├── accounts/                 # users, service accounts, API keys, JWT views
 ├── conftest.py               # shared pytest fixtures
-└── start.sh                  # thin `docker compose up` wrapper
+└── pytest.ini
 ```
 
-## Testing
+## Troubleshooting
 
-Tests run inside the container (real PostGIS + real auth):
-
-```bash
-docker compose run --rm web python -m pytest -q
-```
-
-The CI workflow (`.github/workflows/ci.yml`) builds the images and runs the same
-command on every push and pull request.
+- **`/` returns 404** — expected. The app is mounted at `/admin/` and `/api/`; there is no
+  root route. See [Open the app](#2-open-the-app).
+- **Admin shows a login page but I can't log in** — create a superuser first:
+  `docker compose exec web python manage.py createsuperuser`.
+- **`docker compose` commands fail with a DB connection error** — make sure the `db`
+  container is healthy: `docker compose ps`. The `web` service waits for it via a
+  healthcheck; if `db` won't start, check `docker compose logs db`.
+- **Host can't run `manage.py` / `pytest` directly** — by design (no GIS libs on the host).
+  Always run them inside the container: `docker compose exec web …` / `docker compose run --rm web …`.
+- **Port 5432 / 8000 already in use** — another local Postgres/server is bound. Stop it or
+  remap the port in `docker-compose.yml`.
 
 ## License
 
