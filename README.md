@@ -31,6 +31,9 @@ Highlights:
 - **Proximity search** — `GET /api/events/?lat=&lon=&radius_km=` returns events within the
   radius, each annotated with a `distance` (km), ordered nearest-first. Built on PostGIS
   `geography` columns + `ST_DWithin`.
+- **City catalog** — `GET /api/cities/` (search/filter/order) plus
+  `GET /api/events/?near_city=<slug>` lets users find events by city without knowing
+  coordinates. Seeded with all European cities ≥ 50 000 population.
 - **Two auth mechanisms for external clients:**
   - **JWT** (simplejwt) — short-lived access + refresh tokens.
   - **Long-lived API keys** ("app secrets") — sha256-hashed, revocable, expirable.
@@ -103,6 +106,9 @@ In a separate terminal while the stack is running:
 # Admin login for /admin/
 docker compose exec web python manage.py createsuperuser
 
+# City gazetteer (all European cities >= 50k population) — powers ?near_city=
+docker compose exec web python manage.py seed_cities
+
 # Optional: a few sample venues, organizers, categories and events
 docker compose exec web python manage.py seed
 ```
@@ -151,6 +157,9 @@ All API routes live under `/api/`; auth routes under `/api/auth/`.
 
 | Method        | Endpoint                              | Auth            | Purpose                          |
 | ------------- | ------------------------------------- | --------------- | -------------------------------- |
+| GET           | `/api/cities/`                        | public          | city catalog (search/filter/order) |
+| GET           | `/api/cities/<id>/`                   | public          | city detail (with lat/lon)       |
+| GET           | `/api/events/?near_city=<slug>`       | public          | events near a city (with distance) |
 | GET           | `/api/events/?lat=&lon=&radius_km=`   | public          | proximity search (with distance) |
 | GET / POST    | `/api/events/`                        | public / auth   | list / create events             |
 | GET / PATCH / DELETE | `/api/events/<id>/`             | public / owner  | retrieve / update / delete       |
@@ -162,15 +171,44 @@ All API routes live under `/api/`; auth routes under `/api/auth/`.
 | GET / POST    | `/api/auth/api-keys/`                 | auth            | list / create API keys           |
 | DELETE        | `/api/auth/api-keys/<id>/`            | auth            | revoke an API key                |
 
-### Proximity search
+### City catalog & proximity by city
+
+End users typically don't know lat/lon. The **city catalog** lets a client build a pick-list
+and then query events "near a city" in one call.
+
+```bash
+# 1. Let the user pick a city (prefix search; filter by country; order by population)
+curl 'http://localhost:8000/api/cities/?search=berlin'
+# → [{"name":"Berlin","slug":"berlin-de","latitude":52.52,"longitude":13.41,
+#     "default_radius_km":45,"population":3426354,…}, …]
+
+# 2. Events near that city — uses the city's centroid + default radius,
+#    each result annotated with "distance" (km), nearest first:
+curl 'http://localhost:8000/api/events/?near_city=berlin-de'
+
+# Override the default radius (km):
+curl 'http://localhost:8000/api/events/?near_city=berlin-de&radius_km=10'
+```
+
+Each city exposes `latitude`, `longitude`, `default_radius_km`, `population`, `country`,
+`country_code`, and a unique `slug` (used as `near_city`). Seeded with all European cities
+≥ 50 000 population via `python manage.py seed_cities`. Re-generate the dataset (offline)
+with `python3 scripts/build_european_cities_fixture.py`.
+
+### Proximity search (raw coordinates)
 
 ```bash
 curl 'http://localhost:8000/api/events/?lat=52.52&lon=13.405&radius_km=10'
-# → events within 10 km of Berlin, each with a "distance" (km), nearest first
+# → events within 10 km of the point, each with a "distance" (km), nearest first
 ```
 
 All three of `lat`, `lon`, `radius_km` must be supplied together (otherwise HTTP 400).
-Events without a location are excluded from proximity results.
+Use either `near_city` **or** `lat`/`lon`, not both. Events without a location are excluded
+from proximity results.
+
+> **`?near_city=` vs `?city=`:** `near_city` matches a **gazetteer city slug** and filters
+> events by **distance from its centroid**; `city` (on `/api/events/`) matches a venue's
+> **city text field exactly**. They are independent filters.
 
 ### Authentication
 
@@ -240,6 +278,8 @@ The compose override only swaps in `runserver` for dev. For production:
 ├── config/                   # Django project: settings, urls, wsgi, asgi
 ├── events/                   # events, venues, organizers, categories + proximity
 ├── accounts/                 # users, service accounts, API keys, JWT views
+├── locations/                # city gazetteer (City model, /api/cities/, seed_cities)
+├── scripts/                  # offline tools (build_european_cities_fixture.py)
 ├── conftest.py               # shared pytest fixtures
 └── pytest.ini
 ```

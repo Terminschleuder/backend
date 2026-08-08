@@ -1,6 +1,8 @@
 from django.contrib.auth.models import Group
 from django.utils import timezone
 
+from locations.models import City
+
 from .models import Category, Event, Venue
 
 
@@ -206,3 +208,55 @@ def test_service_account_needs_add_perm_to_create(db, api_client, user, editors_
     user = User.objects.get(pk=user.pk)
     api_client.force_authenticate(user=user)
     assert api_client.post("/api/events/", payload, format="json").status_code == 201
+
+
+# --- Proximity by city (?near_city=) -----------------------------------------
+
+
+def _berlin_city():
+    return City.objects.create(
+        geoname_id=2950159, name="Berlin", country="Germany", country_code="DE",
+        location="POINT(13.405 52.52)", population=3_400_000,
+        default_radius_km=45, timezone="Europe/Berlin", slug="berlin-de",
+    )
+
+
+def test_near_city_returns_nearby_events_with_distance(db, api_client):
+    _berlin_city()
+    Event.objects.create(title="Berlin PyNight", starts_at=timezone.now(),
+                         location="POINT(13.41 52.52)")
+    Event.objects.create(title="Potsdam Meetup", starts_at=timezone.now(),
+                         location="POINT(13.06 52.39)")  # ~27 km from Berlin
+    response = api_client.get("/api/events/?near_city=berlin-de", format="json")
+    assert response.status_code == 200
+    results = response.data["results"] if "results" in response.data else response.data
+    # Both within the default 45 km radius; nearest first, distance annotated.
+    assert [r["title"] for r in results] == ["Berlin PyNight", "Potsdam Meetup"]
+    assert results[0]["distance"] < results[1]["distance"]
+    assert results[0]["distance"] is not None
+
+
+def test_near_city_radius_override_excludes_far(db, api_client):
+    _berlin_city()
+    Event.objects.create(title="Berlin PyNight", starts_at=timezone.now(),
+                         location="POINT(13.41 52.52)")
+    Event.objects.create(title="Potsdam Meetup", starts_at=timezone.now(),
+                         location="POINT(13.06 52.39)")
+    response = api_client.get(
+        "/api/events/?near_city=berlin-de&radius_km=10", format="json"
+    )
+    assert response.status_code == 200
+    results = response.data["results"] if "results" in response.data else response.data
+    assert {r["title"] for r in results} == {"Berlin PyNight"}
+
+
+def test_near_city_unknown_slug_returns_400(db, api_client):
+    response = api_client.get("/api/events/?near_city=nope-xx", format="json")
+    assert response.status_code == 400
+
+
+def test_near_city_with_lat_is_rejected(db, api_client):
+    response = api_client.get(
+        "/api/events/?near_city=berlin-de&lat=52.52", format="json"
+    )
+    assert response.status_code == 400

@@ -4,6 +4,8 @@ from django.contrib.gis.measure import D
 from rest_framework import permissions, viewsets
 from rest_framework.exceptions import ValidationError
 
+from locations.models import City
+
 from .filters import EventFilter
 from .models import Category, Event, Organizer, Venue
 from .permissions import IsOwnerOrGroupOrReadOnly
@@ -67,6 +69,42 @@ class EventViewSet(viewsets.ModelViewSet):
         lat = params.get("lat")
         lon = params.get("lon")
         radius_km = params.get("radius_km")
+        near_city = params.get("near_city")
+
+        point, radius = self._resolve_proximity(near_city, lat, lon, radius_km)
+        if point is not None:
+            qs = qs.filter(location__distance_lte=(point, D(km=radius)))
+            qs = qs.annotate(distance=Distance("location", point))
+            qs = qs.order_by("distance")
+        return qs
+
+    @staticmethod
+    def _resolve_proximity(near_city, lat, lon, radius_km):
+        """Resolve proximity query params to (point, radius_km).
+
+        Accepts either ``near_city=<slug>`` (resolved via the City gazetteer to its
+        centroid + default radius) **or** ``lat``/``lon``/``radius_km`` (all three
+        together). ``radius_km`` overrides a city's default radius when used with
+        ``near_city``. Returns ``(None, None)`` when no proximity params are given.
+        """
+        if near_city is not None:
+            if lat is not None or lon is not None:
+                raise ValidationError(
+                    {"detail": "Use either near_city or lat/lon, not both."}
+                )
+            city = City.objects.filter(is_active=True, slug=near_city).first()
+            if city is None or city.location is None:
+                raise ValidationError({"detail": "Unknown city slug."})
+            radius = float(city.default_radius_km)
+            if radius_km is not None:
+                try:
+                    radius = float(radius_km)
+                except (TypeError, ValueError):
+                    raise ValidationError({"detail": "radius_km must be a number."})
+            if radius < 0:
+                raise ValidationError({"detail": "radius_km must be >= 0."})
+            return city.location, radius
+
         if lat is not None or lon is not None or radius_km is not None:
             if lat is None or lon is None or radius_km is None:
                 raise ValidationError(
@@ -79,7 +117,6 @@ class EventViewSet(viewsets.ModelViewSet):
                 raise ValidationError({"detail": "lat, lon and radius_km must be numbers."})
             if radius < 0:
                 raise ValidationError({"detail": "radius_km must be >= 0."})
-            qs = qs.filter(location__distance_lte=(point, D(km=radius)))
-            qs = qs.annotate(distance=Distance("location", point))
-            qs = qs.order_by("distance")
-        return qs
+            return point, radius
+
+        return None, None
