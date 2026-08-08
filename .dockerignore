@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Virtual envs
+.venv/
+venv/
+
+# Git
+.git/
+.gitignore
+
+# Django local
+*.sqlite3
+db.sqlite3
+.env
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Docs
+*.md

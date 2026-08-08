@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+    tags: ["alpha-*", "v*"]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Build & test (Docker)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # The app needs GDAL/GEOS/PROJ (bundled in the image) and PostGIS in the DB.
+      # We build the compose stack and run everything inside the containers — no
+      # host GIS installs, mirroring the "prod = pull the image" constraint.
+      - name: Build images
+        run: docker compose build
+
+      - name: System check
+        run: docker compose run --rm web python manage.py check
+
+      - name: Migrate
+        run: docker compose run --rm web python manage.py migrate --noinput
+
+      - name: Tests
+        run: docker compose run --rm web python -m pytest -q
+
+      - name: Cleanup
+        if: always()
+        run: docker compose down -v --remove-orphans

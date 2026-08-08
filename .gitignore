@@ -1,0 +1,52 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+build/
+dist/
+develop-eggs/
+downloads/
+sdist/
+wheels/
+MANIFEST
+
+# ---- Virtual environments ----
+.venv/
+venv/
+env/
+
+# ---- Environment / secrets ----
+.env
+.env.local
+.env.*.local
+*.pem
+
+# ---- Database ----
+*.sqlite3
+*.sqlite3-journal
+*.db
+
+# ---- Testing / coverage ----
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+coverage.xml
+*.cover
+
+# ---- Django ----
+local_settings.py
+media/
+
+# ---- Docker (runtime artifacts only; compose files ARE tracked) ----
+# (no host bind data dir; the pgdata volume is managed by docker)
+
+# ---- Editor / OS ----
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store

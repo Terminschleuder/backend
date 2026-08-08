@@ -1,0 +1,48 @@
+# Build and run the terminschleuder backend + PostGIS database.
+#
+#   docker compose up --build   build (if needed) and run db + web
+#   docker compose down          stop and remove containers (data volume kept)
+#
+# The web service runs migrations on start, then the dev server.
+services:
+  db:
+    build:
+      context: .
+      dockerfile: Dockerfile.db
+    environment:
+      POSTGRES_USER: terminschleuder
+      POSTGRES_PASSWORD: terminschleuder
+      POSTGRES_DB: terminschleuder
+      # Subdir avoids any lost+found on the volume mount root.
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U terminschleuder"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  web:
+    build: .
+    environment:
+      SECRET_KEY: django-insecure-local-dev-key-change-me
+      DEBUG: "True"
+      ALLOWED_HOSTS: "*"
+      DATABASE_URL: postgis://terminschleuder:terminschleuder@db:5432/terminschleuder
+    ports:
+      - "8000:8000"
+    volumes:
+      # Dev hot reload: mount the source over the copied app.
+      - .:/app
+    depends_on:
+      db:
+        condition: service_healthy
+    command: >
+      sh -c "python manage.py migrate --noinput &&
+             python manage.py runserver 0.0.0.0:8000"
+
+volumes:
+  pgdata:
