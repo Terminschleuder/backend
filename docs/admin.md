@@ -25,7 +25,7 @@ operators don't have to remember an `/admin/` prefix.
 | **Service accounts** | A dedicated, pre-filtered list (a proxy of `User`). Create one → an **app secret is generated and shown once**; `is_service_account` is forced on, `is_staff` off. "Regenerate app secret" re-rolls it. |
 | **Groups** | Maintain Django groups & permissions. Groups drive event `owner_group` and service-account powers (see [Authentication](authentication.md)). |
 | **API keys** | Issue a long-lived key → the **raw key is shown once** (only prefix + sha256 hash stored). Revoke by editing `revoked`. Raw keys are never listed. |
-| **Cities** | Maintain the gazetteer: add/edit, toggle `is_active`. Bulk re-seed is still the `seed_cities` command (it touches 2131 rows). See [Geospatial & cities](geospatial.md). |
+| **Cities** | Maintain the gazetteer: add/edit, toggle `is_active`. The list shows read-only `latitude`/`longitude` columns (derived from the `location` point); `location` itself is edited via the PostGIS map widget (works inside the container, like venues). Bulk re-seed is still the `seed_cities` command (it touches 2131 rows). See [Geospatial & cities](geospatial.md). |
 | **Events** | Full CRUD. New events default `created_by` to the operator; `created_at`/`updated_at` are read-only. `venue`/`organizer` use autocomplete; `categories` is a filter-horizontal widget. |
 | **Venues / Organizers / Categories** | Full CRUD. `location` is edited via the PostGIS map widget (works inside the container). |
 

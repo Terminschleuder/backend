@@ -1,6 +1,7 @@
 import hashlib
 
 import pytest
+from django.contrib.gis.admin import GISModelAdmin
 from django.contrib.messages.storage.fallback import FallbackStorage
 from django.test import RequestFactory
 from django.urls import reverse
@@ -100,3 +101,39 @@ def test_city_toggle_active_action_flips(admin_user):
 
     city.refresh_from_db()
     assert city.is_active is False
+
+
+@pytest.mark.django_db
+def test_city_admin_uses_gis_model_admin_for_map_widget():
+    # GISModelAdmin provides the PostGIS map widget for the `location` PointField.
+    assert issubclass(CityAdminEnhanced, GISModelAdmin)
+
+
+@pytest.mark.django_db
+def test_city_admin_list_and_readonly_expose_lat_lon():
+    assert "latitude" in CityAdminEnhanced.list_display
+    assert "longitude" in CityAdminEnhanced.list_display
+    assert "latitude" in CityAdminEnhanced.readonly_fields
+    assert "longitude" in CityAdminEnhanced.readonly_fields
+
+
+@pytest.mark.django_db
+def test_city_admin_lat_lon_methods_read_location_point():
+    city = City.objects.create(
+        name="Berlin", country_code="DE", location="POINT(13.405 52.52)",
+        slug="berlin-de",
+    )
+    admin_instance = CityAdminEnhanced(City, None)
+    # location.x = longitude, location.y = latitude; rounded to 5 decimals.
+    assert admin_instance.latitude(city) == round(52.52, 5)
+    assert admin_instance.longitude(city) == round(13.405, 5)
+
+
+@pytest.mark.django_db
+def test_city_admin_lat_lon_methods_handle_missing_location():
+    # `location` is NOT NULL at the DB, so an unsaved in-memory instance is the
+    # only way to exercise the None guard (which mirrors the serializer's).
+    city = City(name="Nowhere", country_code="DE", slug="nowhere-de")
+    admin_instance = CityAdminEnhanced(City, None)
+    assert admin_instance.latitude(city) is None
+    assert admin_instance.longitude(city) is None
