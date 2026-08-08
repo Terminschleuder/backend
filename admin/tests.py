@@ -14,8 +14,15 @@ from admin.admin import (
     ServiceAccountAdmin,
 )
 from admin.models import ServiceAccount
-from events.admin import VenueAdmin
-from events.models import Event, Venue
+from events.admin import EventObservationAdmin, VenueAdmin
+from events.models import (
+    Event,
+    EventObservation,
+    EventSource,
+    IngestionRun,
+    Organization,
+    Venue,
+)
 from locations.models import City
 
 
@@ -205,3 +212,176 @@ def test_event_admin_lat_lon_methods_handle_null_location():
     admin_instance = EventAdminEnhanced(Event, None)
     assert admin_instance.latitude(event) is None
     assert admin_instance.longitude(event) is None
+
+
+# --- Ingestion: observation promotion & event lifecycle ---------------------
+
+
+def _org_source_run():
+    """A provenance triple: org owning an approved source with one run."""
+    from django.utils import timezone
+
+    org = Organization.objects.create(name="Berlin Tech Meetups")
+    source = EventSource.objects.create(
+        organization=org, url="https://example.com/m.ics",
+        platform="homepage", is_approved=True,
+    )
+    run = IngestionRun.objects.create(
+        source=source, started_at=timezone.now(), status=IngestionRun.Status.RUNNING
+    )
+    return org, source, run
+
+
+def _pending_observation(source, run):
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    return EventObservation.objects.create(
+        source=source, run=run,
+        title="Rust Meetup",
+        starts_at=timezone.now() + timedelta(days=3),
+        url="https://example.com/rust", platform="meetup",
+        attendance_mode=Event.AttendanceMode.PHYSICAL,
+        event_type=Event.EventType.MEETUP,
+        venue_name="Factory Berlin", venue_address="Rheinsberger Str. 76",
+        venue_city="Berlin", location="POINT(13.405 52.52)",
+    )
+
+
+@pytest.mark.django_db
+def test_promote_observation_creates_draft_event_with_provenance(admin_user):
+    org, source, run = _org_source_run()
+    obs = _pending_observation(source, run)
+
+    EventObservationAdmin(EventObservation, None).promote(
+        _post_request(admin_user), EventObservation.objects.filter(pk=obs.pk)
+    )
+
+    obs.refresh_from_db()
+    assert obs.status == EventObservation.Status.PROMOTED
+    assert obs.reviewed_by_id == admin_user.id
+    assert obs.reviewed_at is not None
+
+    event = Event.objects.get(title="Rust Meetup")
+    # Promoted events enter as draft (decision #3: draft → publish).
+    assert event.status == Event.Status.DRAFT
+    # Provenance is fully linked.
+    assert event.promoted_from_id == obs.id
+    assert event.source_id == source.id
+    assert event.organization_id == org.id
+    # original_url / original_platform copied from the observation.
+    assert event.original_url == "https://example.com/rust"
+    assert event.original_platform == "meetup"
+    assert event.event_type == Event.EventType.MEETUP
+    assert event.created_by_id == admin_user.id
+    # Venue auto-created from the observation's venue_name/address/city.
+    assert event.venue.name == "Factory Berlin"
+    assert event.venue.city == "Berlin"
+
+    # The run's promoted counter is bumped.
+    run.refresh_from_db()
+    assert run.events_promoted == 1
+
+
+@pytest.mark.django_db
+def test_promote_requires_add_event_perm(admin_user):
+    """Without add_event, the promote action is a no-op with an error message."""
+    from django.contrib.auth.models import Permission
+
+    admin_user.is_superuser = False
+    admin_user.is_staff = True
+    admin_user.save()
+    # Strip add_event by ensuring it's not granted (staff without it).
+    admin_user.user_permissions.remove(
+        Permission.objects.filter(content_type__app_label="events", codename="add_event").first()
+    )
+
+    org, source, run = _org_source_run()
+    obs = _pending_observation(source, run)
+    EventObservationAdmin(EventObservation, None).promote(
+        _post_request(admin_user), EventObservation.objects.filter(pk=obs.pk)
+    )
+    assert not Event.objects.filter(title="Rust Meetup").exists()
+    assert EventObservation.objects.get(pk=obs.pk).status == EventObservation.Status.PENDING
+
+
+@pytest.mark.django_db
+def test_publish_action_sets_published_and_published_at(admin_user):
+    from django.utils import timezone
+
+    org, source, run = _org_source_run()
+    obs = _pending_observation(source, run)
+    EventObservationAdmin(EventObservation, None).promote(
+        _post_request(admin_user), EventObservation.objects.filter(pk=obs.pk)
+    )
+    event = Event.objects.get(title="Rust Meetup")
+
+    EventAdminEnhanced(Event, None).publish(
+        _post_request(admin_user), Event.objects.filter(pk=event.pk)
+    )
+    event.refresh_from_db()
+    assert event.status == Event.Status.PUBLISHED
+    assert event.published_at is not None
+
+
+@pytest.mark.django_db
+def test_promoted_then_published_event_visible_with_nested_provenance(
+    admin_user, client
+):
+    """End-to-end: promote → publish → the public API exposes the event with its
+    nested provenance (source + promoted_from)."""
+    org, source, run = _org_source_run()
+    obs = _pending_observation(source, run)
+    EventObservationAdmin(EventObservation, None).promote(
+        _post_request(admin_user), EventObservation.objects.filter(pk=obs.pk)
+    )
+    event = Event.objects.get(title="Rust Meetup")
+    EventAdminEnhanced(Event, None).publish(
+        _post_request(admin_user), Event.objects.filter(pk=event.pk)
+    )
+
+    # Anon can now retrieve the (published) promoted event.
+    response = client.get(f"/api/events/{event.id}/", format="json")
+    assert response.status_code == 200
+    assert response.data["status"] == Event.Status.PUBLISHED
+    assert response.data["original_url"] == "https://example.com/rust"
+    # Provenance is nested and read-only.
+    assert response.data["source"]["url"] == source.url
+    assert response.data["promoted_from"]["title"] == "Rust Meetup"
+    assert response.data["promoted_from"]["status"] == EventObservation.Status.PROMOTED
+
+
+@pytest.mark.django_db
+def test_event_admin_lifecycle_actions():
+    from django.utils import timezone
+
+    event = Event.objects.create(title="E", starts_at=timezone.now())
+    qs = Event.objects.filter(pk=event.pk)
+    req = _post_request(_staff_user())
+
+    EventAdminEnhanced(Event, None).cancel(req, qs)
+    event.refresh_from_db()
+    assert event.status == Event.Status.CANCELLED
+    assert event.cancelled_at is not None
+
+    EventAdminEnhanced(Event, None).archive(req, qs)
+    event.refresh_from_db()
+    assert event.status == Event.Status.ARCHIVED
+
+    EventAdminEnhanced(Event, None).revert_to_draft(req, qs)
+    event.refresh_from_db()
+    assert event.status == Event.Status.DRAFT
+
+
+def _staff_user():
+    """A minimal staff user (with change_event) for the admin actions."""
+    from django.contrib.auth.models import Permission
+
+    user = User.objects.create_user(username="operator", password="x")
+    user.is_staff = True
+    user.save()
+    user.user_permissions.add(
+        Permission.objects.get(content_type__app_label="events", codename="change_event")
+    )
+    return User.objects.get(pk=user.pk)  # refetch (perm cache gotcha)
