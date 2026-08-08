@@ -11,6 +11,7 @@ which GitHub renders inline).
 
 | Document | Scope |
 | -------- | ----- |
+| [User manual](user-manual.md) | Use-case-driven guide for operators and extractor integrators: curating events, setting up ingestion, reviewing & promoting observations, lifecycle. Start here if you *work with* the app. |
 | [Architecture](architecture.md) | High-level design, the "no host GIS" constraint, container layout, the public + extractor request lifecycles, project layout. |
 | [Data model](data-model.md) | Entities, fields, and relationships (with an ER diagram): events, organizations, event sources, ingestion runs, observations, provenance. |
 | [API reference](api-reference.md) | Every endpoint: params, request/response examples, status codes, errors, pagination — including the `/api/ingestion/` extractor surface. |

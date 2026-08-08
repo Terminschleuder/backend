@@ -511,7 +511,8 @@ Returns `204`.
 | --- | --- |
 | `python manage.py createsuperuser` | Django admin login |
 | `python manage.py seed_cities` | load the European city gazetteer (idempotent) |
-| `python manage.py seed` | sample venues/organizations/categories/events |
+| `python manage.py seed` | a few sample venues/organizations/categories/events |
+| `python manage.py seed_demo` | rich demo dataset across all areas (orgs, sources, runs, observations, events + lifecycle/provenance) plus a `demo` staff user and the `ingestion` group; idempotent & non-destructive |
 | `python manage.py create_service_account <name> --group <group>` | provision a system client (prints a one-time secret) |
 
 Provision the extractor once (create the `ingestion` group + a service account in it, then

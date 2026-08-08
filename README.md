@@ -121,6 +121,11 @@ docker compose exec web python manage.py seed_cities
 
 # Optional: a few sample venues, organizations, categories and events
 docker compose exec web python manage.py seed
+
+# Optional: a rich demo dataset across every area (orgs, sources, runs,
+# observations, events with lifecycle + provenance) + a `demo`/`demo12345` staff
+# user and the `ingestion` group. Idempotent and non-destructive.
+docker compose exec web python manage.py seed_demo
 ```
 
 ### 4. Run the tests
@@ -354,6 +359,7 @@ model, complete API reference, authentication, and geospatial/cities — see the
 | Document | Scope |
 | -------- | ----- |
 | [docs/README.md](docs/README.md) | Documentation index |
+| [docs/user-manual.md](docs/user-manual.md) | Use-case-driven guide for operators & extractor integrators (start here if you work with the app) |
 | [docs/architecture.md](docs/architecture.md) | High-level design, container layout, request lifecycle |
 | [docs/data-model.md](docs/data-model.md) | Entities, fields, relationships (ER diagram) |
 | [docs/api-reference.md](docs/api-reference.md) | Every endpoint: params, examples, status codes, errors |
