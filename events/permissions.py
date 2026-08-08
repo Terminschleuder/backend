@@ -49,3 +49,40 @@ class IsOwnerOrGroupOrReadOnly(permissions.BasePermission):
         if obj.owner_group_id and user.groups.filter(id=obj.owner_group_id).exists():
             return True
         return False
+
+
+class IsIngestionService(permissions.BasePermission):
+    """Gate the extractor-facing ingestion API (``/api/ingestion/``).
+
+    The caller must be an authenticated user holding the ingestion permissions
+    required for the operation. Each ingestion view declares the perms it needs
+    via a ``ingestion_perms`` mapping (keys are HTTP methods **or** view
+    actions, values are lists of ``app.codename`` perm strings). In practice the
+    extractor is a service account placed in an ``ingestion`` group carrying:
+
+        events.view_eventsource            (read due sources)
+        events.add_ingestionrun            (report runs)
+        events.change_ingestionrun         (finish runs)
+        events.view_ingestionrun           (read runs)
+        events.add_eventobservation        (submit observations)
+        events.view_eventobservation       (read observations)
+
+    Anonymous access is forbidden (the route is not part of the public catalog).
+
+    .. note:: ``user.has_perm()`` caches results on the instance. If a test
+        grants a group permission mid-flow, refetch the user from the DB before
+        re-checking (see AGENTS.md permission-cache gotcha).
+    """
+
+    def has_permission(self, request, view):
+        user = request.user
+        if not (user and user.is_authenticated):
+            return False
+        perms_map = getattr(view, "ingestion_perms", {})
+        action = getattr(view, "action", None)
+        # An action-specific entry (e.g. "success"/"failure"/"bulk") wins over
+        # the bare HTTP method.
+        required = perms_map.get(action) or perms_map.get(request.method)
+        if not required:
+            return True
+        return all(user.has_perm(p) for p in required)

@@ -22,12 +22,58 @@ operators don't have to remember an `/admin/` prefix.
 | Section | What you do there |
 | ------- | ----------------- |
 | **Users** | Create/manage human users. Set `is_staff` to grant backoffice access; assign groups. Passwords hashed via Django's forms. |
-| **Service accounts** | A dedicated, pre-filtered list (a proxy of `User`). Create one → an **app secret is generated and shown once**; `is_service_account` is forced on, `is_staff` off. "Regenerate app secret" re-rolls it. |
-| **Groups** | Maintain Django groups & permissions. Groups drive event `owner_group` and service-account powers (see [Authentication](authentication.md)). |
-| **API keys** | Issue a long-lived key → the **raw key is shown once** (only prefix + sha256 hash stored). Revoke by editing `revoked`. Raw keys are never listed. |
+| **Service accounts** | A dedicated, pre-filtered list (a proxy of `User`). Create one → an **app secret is generated and shown once**; `is_service_account` is forced on, `is_staff` off. "Regenerate app secret" re-rolls it. Provision the extractor here (put it in the `ingestion` group). |
+| **Groups** | Maintain Django groups & permissions. Groups drive event `owner_group`, service-account powers, and the `ingestion` group (see [Authentication](authentication.md)). |
+| **API keys** | Issue a long-lived key → the **raw key is shown once** (only prefix + sha256 hash stored). Revoke by editing `revoked`. Raw keys are never listed. Issue the extractor its key here. |
 | **Cities** | Maintain the gazetteer: add/edit, toggle `is_active`. The list shows read-only `latitude`/`longitude` columns (derived from the `location` point); `location` itself is edited via the PostGIS map widget (works inside the container, like venues). Bulk re-seed is still the `seed_cities` command (it touches 2131 rows). See [Geospatial & cities](geospatial.md). |
-| **Events** | Full CRUD. The list shows read-only `latitude`/`longitude` columns; `location` is edited via the PostGIS map widget (works inside the container). New events default `created_by` to the operator; `created_at`/`updated_at` are read-only. `venue`/`organizer` use autocomplete; `categories` is a filter-horizontal widget. |
-| **Venues / Organizers / Categories** | Full CRUD. Venues show read-only `latitude`/`longitude` columns and edit `location` via the PostGIS map widget (works inside the container). |
+| **Organizations** | The entities that own event sources and the events extracted from them (renamed from *Organizers*). Add/edit `name`/`description`/`website`/`owner`; the `slug` is auto-generated. Toggle `is_active` — inactive orgs are hidden from the public API and their sources stop being due. |
+| **Event sources** | Add a source URL per organization (unique per org), set its `platform`, `fetch_interval_minutes`, and `created_by` (defaults to the operator). **Approve** a source to make it eligible for extraction, **disable** to pause an approved one, **revoke** to withdraw approval. `last_fetched_at`/`next_due_at` are read-only (stamped by the extractor). |
+| **Ingestion runs** | **Read-only** — runs are *reported* by the extractor, not edited. Inspect `status`/`started_at`/`finished_at`/`events_found`/`events_promoted`/`error_message`; filter by status or organization. |
+| **Event observations** | Review untrusted extracted events. List shows `title`/`starts_at`/`source`/`status`/`attendance_mode`/`event_type`/`reviewed_by`. Actions: **accept**, **reject**, and **promote** (see below). |
+| **Events** | Full CRUD + lifecycle. The list shows `status`/`event_type`/`attendance_mode`/`organization`/read-only `latitude`/`longitude`; `location` is edited via the PostGIS map widget. New events default `created_by` to the operator. `venue`/`organization` use autocomplete; `categories` is filter-horizontal. Lifecycle actions: **publish** / **cancel** / **archive** / **revert to draft**. |
+| **Venues / Categories** | Full CRUD. Venues show read-only `latitude`/`longitude` columns and edit `location` via the PostGIS map widget (works inside the container). |
+
+## Event observations & promotion
+
+The ingestion pipeline's trust boundary lives here. An **EventObservation** is untrusted; it
+never mutates a canonical `Event` directly. An operator reviews it and **promotes** an
+accepted one into a canonical event:
+
+1. **Accept / reject** — set an observation to `accepted` or `rejected` (stamps
+   `reviewed_by` / `reviewed_at`). Only `pending` observations can be accepted/rejected.
+2. **Promote** — the key action (requires `events.add_event`). For a selected non-promoted
+   observation it creates a **draft** `Event` copying `title`/`description`/`starts_at`/
+   `ends_at`/`attendance_mode`/`event_type`/`location`, with full provenance:
+   - `organization` = the source's organization,
+   - `source` = the observation's `EventSource`,
+   - `promoted_from` = the observation,
+   - `original_url` / `original_platform` copied from the observation,
+   - `status = draft`, `created_by` = the operator.
+   - If the observation has a `venue_name`, a `Venue` is auto-created (or reused) from
+     `venue_name`/`venue_address`/`venue_city`.
+
+   The observation is then marked `promoted` (with `reviewed_by`/`reviewed_at`), and its
+   run's `events_promoted` counter is bumped. The new event goes **draft → publish** as a
+   second, deliberate step.
+
+> The extractor (the `ingestion` service account) **cannot** promote — it lacks
+> `add_event`/`change_eventobservation`. Promotion is an operator decision, by design.
+
+## Event lifecycle
+
+An event moves through `draft` → `published` → (`cancelled` | `archived`), reversible to
+`draft`. Drive it from the backoffice list actions or the matching API actions
+(`POST /api/events/<id>/publish/` etc.):
+
+| Action | Effect |
+| --- | --- |
+| **Publish** | `status=published`, stamps `published_at`. |
+| **Cancel** | `status=cancelled`, stamps `cancelled_at`. |
+| **Archive** | `status=archived`. |
+| **Revert to draft** | `status=draft`. |
+
+Only `published` events are visible to anonymous users of the public API; an owner may
+retrieve their own draft.
 
 ## Service-account & API-key "shown once" flow
 

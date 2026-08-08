@@ -21,8 +21,24 @@ from django.shortcuts import render
 from accounts.admin import APIKeyAdmin as APIKeyAdminBase
 from accounts.admin import CustomUserAdmin
 from accounts.models import APIKey, User
-from events.admin import CategoryAdmin, EventAdmin, OrganizerAdmin, VenueAdmin
-from events.models import Category, Event, Organizer, Venue
+from events.admin import (
+    CategoryAdmin,
+    EventAdmin,
+    EventObservationAdmin,
+    EventSourceAdmin,
+    IngestionRunAdmin,
+    OrganizationAdmin,
+    VenueAdmin,
+)
+from events.models import (
+    Category,
+    Event,
+    EventObservation,
+    EventSource,
+    IngestionRun,
+    Organization,
+    Venue,
+)
 from locations.admin import CityAdmin
 from locations.models import City
 
@@ -185,5 +201,8 @@ terminschleuder_admin.register(APIKey, APIKeyAdmin)
 terminschleuder_admin.register(City, CityAdminEnhanced)
 terminschleuder_admin.register(Event, EventAdminEnhanced)
 terminschleuder_admin.register(Venue, VenueAdmin)
-terminschleuder_admin.register(Organizer, OrganizerAdmin)
+terminschleuder_admin.register(Organization, OrganizationAdmin)
+terminschleuder_admin.register(EventSource, EventSourceAdmin)
+terminschleuder_admin.register(IngestionRun, IngestionRunAdmin)
+terminschleuder_admin.register(EventObservation, EventObservationAdmin)
 terminschleuder_admin.register(Category, CategoryAdmin)

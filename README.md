@@ -25,17 +25,26 @@ authentication** for external and service clients.
 
 ## Overview
 
-terminschleuder serves a catalog of **events, venues, organizers, and categories** with
-geospatial locations, and exposes it through a REST API.
+terminschleuder is the **system of record** for a catalog of **events, venues,
+organizations, and categories** with geospatial locations, exposed through a REST API. An
+**external extraction pipeline** feeds it: organizations own event-source URLs; an
+extractor crawls approved sources, reports ingestion runs, and submits **untrusted** event
+observations; operators review and **promote** accepted ones into canonical, published
+events with full provenance.
 
 Highlights:
 
 - **Proximity search** — `GET /api/events/?lat=&lon=&radius_km=` returns events within the
   radius, each annotated with a `distance` (km), ordered nearest-first. Built on PostGIS
-  `geography` columns + `ST_DWithin`.
+  `geography` columns + `ST_DWithin`. **Online events are excluded** from proximity.
 - **City catalog** — `GET /api/cities/` (search/filter/order) plus
   `GET /api/events/?near_city=<slug>` lets users find events by city without knowing
   coordinates. Seeded with all European cities ≥ 50 000 population.
+- **Ingestion & provenance** — `/api/ingestion/` lets an external extractor discover due
+  sources, report runs, and submit untrusted observations; operators promote accepted
+  observations into canonical events linked back to their source and run.
+- **Event lifecycle** — `draft` / `published` / `cancelled` / `archived`, driven from the
+  API or backoffice; the public catalog shows only `published` events.
 - **Two auth mechanisms for external clients:**
   - **JWT** (simplejwt) — short-lived access + refresh tokens.
   - **Long-lived API keys** ("app secrets") — sha256-hashed, revocable, expirable.
@@ -43,7 +52,7 @@ Highlights:
   carry Django groups & permissions and obtain JWTs / API keys like any user.
 - **Ownership & permissions** — events have an owner (`created_by`) and an optional
   `owner_group`; writes are gated by owner / group membership / model permissions. Reads
-  stay public.
+  stay public (published events).
 - **`create_service_account` management command** to provision a system client.
 
 ## Tech stack
@@ -110,7 +119,7 @@ docker compose exec web python manage.py createsuperuser
 # City gazetteer (all European cities >= 50k population) — powers ?near_city=
 docker compose exec web python manage.py seed_cities
 
-# Optional: a few sample venues, organizers, categories and events
+# Optional: a few sample venues, organizations, categories and events
 docker compose exec web python manage.py seed
 ```
 
@@ -162,16 +171,27 @@ All API routes live under `/api/`; auth routes under `/api/auth/`.
 | GET           | `/api/cities/all/`                    | public          | full catalog, unpaginated (one response) |
 | GET           | `/api/cities/<id>/`                   | public          | city detail (with lat/lon)       |
 | GET           | `/api/events/?near_city=<slug>`       | public          | events near a city (with distance) |
-| GET           | `/api/events/?lat=&lon=&radius_km=`   | public          | proximity search (with distance) |
-| GET / POST    | `/api/events/`                        | public / auth   | list / create events             |
+| GET           | `/api/events/?lat=&lon=&radius_km=`   | public          | proximity search (with distance; online excluded) |
+| GET / POST    | `/api/events/`                        | public / auth   | list (published only) / create events |
 | GET / PATCH / DELETE | `/api/events/<id>/`             | public / owner  | retrieve / update / delete       |
-| GET / POST    | `/api/venues/`, `/api/organizers/`, `/api/categories/` | mixed | catalog + CRUD        |
+| POST          | `/api/events/<id>/publish/` `cancel/` `archive/` `revert_to_draft/` | owner / `change_event` | event lifecycle |
+| GET           | `/api/organizations/` , `/<slug>/` , `/<slug>/events/` | public | organization catalog (active; by slug) + its published events |
+| GET / POST    | `/api/venues/`, `/api/categories/`    | mixed           | catalog + CRUD        |
+| GET           | `/api/ingestion/sources/due/`         | ingestion       | extractor work queue (due sources) |
+| POST          | `/api/ingestion/runs/` , `/<id>/success/` `failure/` | ingestion | report / finish a run |
+| POST          | `/api/ingestion/observations/` , `/bulk/` | ingestion    | submit untrusted observations |
+| GET           | `/api/ingestion/observations/` , `/api/ingestion/runs/` | ingestion | list submitted |
 | POST          | `/api/auth/register/`                 | public          | register a user                  |
 | POST          | `/api/auth/token/`                    | public          | obtain JWT (access + refresh)    |
 | POST          | `/api/auth/token/refresh/`            | public          | refresh JWT                      |
 | GET           | `/api/auth/me/`                       | auth            | current user + groups + perms    |
 | GET / POST    | `/api/auth/api-keys/`                 | auth            | list / create API keys           |
 | DELETE        | `/api/auth/api-keys/<id>/`            | auth            | revoke an API key                |
+
+> **ingestion** auth = a service account in the `ingestion` group (carrying
+> `view_eventsource` / `add_ingestionrun` / `change_ingestionrun` / `view_ingestionrun` /
+> `add_eventobservation` / `view_eventobservation`), authenticating with an API key. See
+> [Authentication](docs/authentication.md).
 
 ### City catalog & proximity by city
 
@@ -256,6 +276,23 @@ A service account is a normal Django user (so it obtains JWTs / API keys and car
 & permissions), flagged non-interactive. To let it **create events**, grant the group
 `events.add_event`; for update/delete, grant `events.change_event` / `events.delete_event`.
 
+**The extractor** is a service account in an `ingestion` group (it may read due sources,
+report runs, and submit observations, but cannot promote or publish — those are operator
+actions):
+
+```bash
+docker compose exec web python manage.py shell -c "
+from django.contrib.auth.models import Group, Permission
+g, _ = Group.objects.get_or_create(name='ingestion')
+g.permissions.add(*Permission.objects.filter(content_type__app_label='events', codename__in=[
+    'view_eventsource','add_ingestionrun','change_ingestionrun','view_ingestionrun',
+    'add_eventobservation','view_eventobservation']))
+"
+docker compose exec web python manage.py create_service_account extractor --group ingestion \
+  --description "External extraction system"
+# then issue the extractor an API key (via /api/auth/api-keys/ as an admin, or the backoffice)
+```
+
 ### Ownership model
 
 - `GET` (all collections) — **public** (the catalog).
@@ -286,9 +323,24 @@ It covers all the operator tasks:
 - **Cities** — maintain the gazetteer (add/edit, toggle `is_active`). The list shows read-only
   `latitude`/`longitude` columns and `location` is edited via the PostGIS map widget. Bulk
   re-seed stays the `seed_cities` command.
-- **Events / venues / organizers / categories** — full CRUD; events and venues show read-only
-  `latitude`/`longitude` and edit `location` via the PostGIS map widget. New events default
-  `created_by` to the operator and protect `created_at`/`updated_at`.
+- **Organizations** — the entities that own event sources and the events extracted from them
+  (renamed from *organizers*). Toggle `is_active` (inactive orgs are hidden from the public
+  API and their sources stop being due).
+- **Event sources** — add a source URL per organization; **approve** / **disable** / **revoke**
+  to control extraction eligibility. `last_fetched_at`/`next_due_at` are stamped by the
+  extractor (read-only here).
+- **Ingestion runs** — read-only inspection of runs reported by the extractor.
+- **Event observations** — review untrusted extracted events: **accept** / **reject** /
+  **promote** (promote creates a draft canonical event with full provenance — see below).
+- **Events / venues / categories** — full CRUD + event **lifecycle** (publish / cancel /
+  archive / revert to draft). Events and venues show read-only `latitude`/`longitude` and
+  edit `location` via the PostGIS map widget. New events default `created_by` to the operator
+  and protect `created_at`/`updated_at`.
+
+> **Promotion flow:** the extractor submits `pending` observations; an operator **promotes**
+> an accepted one into a **draft** event (copying `original_url`/`original_platform`/location,
+> linking `source` + `promoted_from`), then **publishes** it. The extractor can never
+> promote or publish — only report and submit.
 
 > The backoffice uses **session auth + `is_staff`** on the same custom `User` the API uses —
 > no separate auth system. See [docs/admin.md](docs/admin.md) for the full guide.
@@ -332,7 +384,9 @@ The compose override only swaps in `runserver` for dev. For production:
 ├── start.sh                  # thin `docker compose up` wrapper
 ├── config/                   # Django project: settings, urls, wsgi, asgi
 ├── admin/                    # backoffice (custom AdminSite at /, service-account & API-key flows)
-├── events/                   # events, venues, organizers, categories + proximity
+├── events/                   # events, venues, organizations, categories + proximity;
+│                             #   ingestion & provenance (sources/runs/observations);
+│                             #   event lifecycle; extractor API (/api/ingestion/)
 ├── accounts/                 # users, service accounts, API keys, JWT views
 ├── locations/                # city gazetteer (City model, /api/cities/, seed_cities)
 ├── scripts/                  # offline tools (build_european_cities_fixture.py)

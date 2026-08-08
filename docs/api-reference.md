@@ -46,18 +46,25 @@ return `403`; missing objects return `404`.
 
 ### Filtering, search & ordering
 
-Applies to list endpoints that declare them (`events`, `cities`, `venues`, `organizers`,
+Applies to list endpoints that declare them (`events`, `cities`, `venues`, `organizations`,
 `categories`):
 
 - `?search=<q>` — case-insensitive partial match on the endpoint's search fields
   (`events` on title/description, `cities` on name, …).
 - `?ordering=<field>` / `?ordering=-<field>` — sort. Available fields: events
-  `starts_at`, `created_at`, `distance`; cities `name`, `population`.
+  `starts_at`, `created_at`, `distance`, `status`, `event_type`, `attendance_mode`,
+  `published_at`; cities `name`, `population`.
 - `?page_size=<n>` — page size (see Pagination).
+
+> **Public visibility:** the public events list shows only `status=published` events.
+> Operators (holders of `events.change_event`, or staff) see the full lifecycle; an owner
+> can also retrieve their own drafts. See [Event lifecycle](#event-lifecycle) below.
 
 > **Note on proximity ordering:** when a proximity filter (`lat`/`lon` or `near_city`) is
 > active, results are ordered by **distance, nearest-first**, and `?ordering=` is ignored
-> for the ordering itself. Non-proximity listings fall back to the model's default ordering.
+> for the ordering itself. **Online events are excluded** from proximity results even if
+> they carry a location (hybrid events keep their physical presence and stay in).
+> Non-proximity listings fall back to the model's default ordering.
 
 ---
 
@@ -69,12 +76,18 @@ Public. Supports proximity filters, plus search/filter/ordering/pagination.
 
 | Param | Type | Notes |
 | --- | --- | --- |
-| `lat`, `lon`, `radius_km` | float | **All three together.** Events within `radius_km` of the point. Results annotated with `distance` (km), nearest-first. |
+| `lat`, `lon`, `radius_km` | float | **All three together.** Events within `radius_km` of the point. Results annotated with `distance` (km), nearest-first. **Online events excluded.** |
 | `near_city` | string (slug) | Resolve to a city centroid + `default_radius_km`. Annotated with `distance`, nearest-first. **Mutually exclusive** with `lat`/`lon`. |
 | `radius_km` | float | With `near_city`, overrides the city's default radius. |
 | `city` | string | Exact, case-insensitive match on `venue.city` (free text). Independent of `near_city`. |
+| `organization` | int | Filter by `organization_id`. |
+| `organization_slug` | string | Filter by `organization.slug` (case-insensitive). |
+| `event_type` | string | One of `meetup` / `conference` / `workshop` / `social` / `other`. |
+| `attendance_mode` | string | One of `physical` / `online` / `hybrid`. |
+| `status` | string | One of `draft` / `published` / `cancelled` / `archived` (operator-only — the queryset still enforces published for anon). |
+| `starts_at_after`, `starts_at_before` | datetime | Date-range filter on `starts_at`. |
 | `search` | string | Partial match on title/description. |
-| `ordering` | string | `starts_at`, `created_at`, `distance` (ignored when proximity active). |
+| `ordering` | string | `starts_at`, `created_at`, `distance`, `status`, `event_type`, `attendance_mode`, `published_at` (ignored when proximity active). |
 | `page`, `page_size` | int | Pagination. |
 
 ```bash
@@ -94,9 +107,18 @@ curl 'http://localhost:8000/api/events/?near_city=berlin-de&radius_km=10'
       "starts_at": "2026-09-03T19:00:00+02:00",
       "ends_at": null,
       "venue": { "id": 7, "name": "Hacklab", "city": "Berlin", "latitude": 52.52, "longitude": 13.40, "capacity": 120 },
-      "organizer": null,
+      "organization": { "id": 3, "name": "Python Berlin e.V.", "slug": "python-berlin-ev", "description": "...", "website": "https://example.org" },
       "categories": [ { "id": 1, "name": "Tech", "slug": "tech" } ],
       "capacity": null,
+      "status": "published",
+      "event_type": "meetup",
+      "attendance_mode": "physical",
+      "published_at": "2026-08-08T10:00:00+02:00",
+      "cancelled_at": null,
+      "original_url": "https://example.com/rust-meetup",
+      "original_platform": "meetup",
+      "source": { "id": 5, "url": "https://example.com/meetups.ics", "platform": "homepage" },
+      "promoted_from": { "id": 88, "title": "Rust Meetup", "starts_at": "2026-09-03T19:00:00+02:00", "url": "https://example.com/rust-meetup", "platform": "meetup", "status": "promoted" },
       "created_by": 1,
       "created_at": "2026-08-08T10:00:00+02:00",
       "updated_at": "2026-08-08T10:00:00+02:00",
@@ -109,6 +131,10 @@ curl 'http://localhost:8000/api/events/?near_city=berlin-de&radius_km=10'
 }
 ```
 
+`source` and `promoted_from` are `null` for hand-curated events; they're populated only for
+events promoted from an observation (read-only — set by the promote action, never the public
+payload).
+
 Validation:
 
 - `lat`/`lon`/`radius_km` must all be present together, or all absent → else `400`.
@@ -119,7 +145,7 @@ Validation:
 ### `POST /api/events/` — create an event
 
 Authenticated. Human users may create freely; service accounts require `events.add_event`.
-The creator becomes `created_by` (the owner).
+The creator becomes `created_by` (the owner). New events default to `status=published`.
 
 ```bash
 curl -X POST http://localhost:8000/api/events/ \
@@ -128,6 +154,7 @@ curl -X POST http://localhost:8000/api/events/ \
     "title": "Berlin Python Meetup",
     "starts_at": "2026-09-03T19:00:00+02:00",
     "venue_id": 7,
+    "organization_id": 3,
     "category_ids": [1],
     "latitude": 52.52,
     "longitude": 13.40,
@@ -142,19 +169,22 @@ curl -X POST http://localhost:8000/api/events/ \
 | `starts_at` | datetime | required |
 | `ends_at` | datetime | optional |
 | `venue_id` | int | optional; if set and has a location, event copies it when no coords given |
-| `organizer_id` | int | optional |
+| `organization_id` | int | optional |
 | `category_ids` | int[] | optional |
 | `capacity` | int | optional |
 | `owner_group_id` | int | optional; co-owners who may edit/delete |
 | `latitude`, `longitude` | float | optional, write-only; stored as `location` |
 
-`created_by`, `created_at`, `updated_at` are read-only. Returns `201` with the created
-event (same shape as the list item). Validation errors → `400`.
+`created_by`, `created_at`, `updated_at`, `status`, `published_at`, `cancelled_at`,
+`source`, and `promoted_from` are read-only (lifecycle/provenance are driven by dedicated
+actions, not the public payload). Returns `201` with the created event (same shape as the
+list item). Validation errors → `400`.
 
 ### `GET /api/events/<id>/` — retrieve
 
-Public. Returns a single event (same shape as a list item, without `distance` unless a
-proximity filter is applied to the collection).
+Public for `published` events. An owner may retrieve their own draft (`404` for anon).
+Returns a single event (same shape as a list item, without `distance` unless a proximity
+filter is applied to the collection).
 
 ### `PATCH /api/events/<id>/` — update
 
@@ -166,6 +196,22 @@ Returns `200` with the updated event; `403` if not allowed; `400` on validation 
 
 Allowed for the **owner**, **`owner_group`** members, or any holder of
 `events.delete_event`. Returns `204`; `403` if not allowed.
+
+### Event lifecycle
+
+Operators drive the event lifecycle from the API. Each action is a `POST` to a detail
+sub-resource, gated by `events.change_event` (object-level: owner / `owner_group` member /
+model-permission holder).
+
+| Action | Endpoint | Effect |
+| --- | --- | --- |
+| Publish | `POST /api/events/<id>/publish/` | `status=published`, stamps `published_at` |
+| Cancel | `POST /api/events/<id>/cancel/` | `status=cancelled`, stamps `cancelled_at` |
+| Archive | `POST /api/events/<id>/archive/` | `status=archived` |
+| Revert to draft | `POST /api/events/<id>/revert_to_draft/` | `status=draft` |
+
+Returns `200` with the updated event; `403` if not allowed. (The same actions exist in the
+backoffice — see [Admin backoffice](admin.md).)
 
 ---
 
@@ -225,16 +271,13 @@ Returns one city (same field shape as a list item).
 
 ---
 
-## Venues, organizers, categories
+## Venues, organizations, categories
 
-Standard CRUD viewsets. Reads are public; writes are authenticated (service accounts need
-the relevant `add`/`change`/`delete` permission).
-
-| Collection | Endpoint | Search field |
-| --- | --- | --- |
-| Venues | `/api/venues/` | `name` |
-| Organizers | `/api/organizers/` | `name` |
-| Categories | `/api/categories/` | `name` |
+| Collection | Endpoint | Search field | Notes |
+| --- | --- | --- | --- |
+| Venues | `/api/venues/` | `name` | Standard CRUD; reads public, writes authenticated. |
+| Organizations | `/api/organizations/` | `name`, `description` | **Read-only** public catalog; lookup by `slug`. |
+| Categories | `/api/categories/` | `name` | Standard CRUD; reads public, writes authenticated. |
 
 ### Venue
 
@@ -246,14 +289,19 @@ the relevant `add`/`change`/`delete` permission).
 Write fields: `name`, `address`, `city`, `capacity`, `latitude`, `longitude` (coords stored
 as `location`).
 
-### Organizer
+### Organization
+
+Public, **read-only** (`ReadOnlyModelViewSet`); only active organizations are listed.
+Detail lookups use the **`slug`**: `GET /api/organizations/<slug>/`.
 
 ```json
-{ "id": 3, "name": "Python Berlin e.V.", "description": "...",
-  "website": "https://example.org", "owner": 1 }
+{ "id": 3, "name": "Python Berlin e.V.", "slug": "python-berlin-ev",
+  "description": "...", "website": "https://example.org" }
 ```
 
-Write fields: `name`, `description`, `website`, `owner` (user id).
+`GET /api/organizations/<slug>/events/` — a detail action returning the organization's
+**published** events (reuses the events queryset: published-only for anon, proximity
+support, online excluded from proximity). Paginated like `/api/events/`.
 
 ### Category
 
@@ -262,6 +310,101 @@ Write fields: `name`, `description`, `website`, `owner` (user id).
 ```
 
 Write fields: `name` (`slug` is auto-generated and read-only).
+
+---
+
+## Ingestion (`/api/ingestion/`)
+
+The extractor-facing surface: an external extraction system discovers due sources, reports
+ingestion runs, and submits untrusted event observations. **Everything here is
+authenticated** (JWT / Session / API key) and gated by the `IsIngestionService` permission —
+the caller is a service account in an `ingestion` group carrying the relevant model perms
+(see [Authentication](authentication.md#the-ingestion-group)). Anonymous → `401`; a
+caller missing the required perm → `403`. Observations always enter as `pending` — the
+extractor can never self-promote.
+
+### `GET /api/ingestion/sources/due/` — the work queue
+
+Requires `events.view_eventsource`. Returns approved, active sources due for a fetch
+(`next_due_at` is null or in the past), never-fetched first. Each item carries the nested
+owning organization.
+
+```bash
+curl -H "Authorization: Api-Key $KEY" \
+  http://localhost:8000/api/ingestion/sources/due/
+```
+
+```json
+{
+  "count": 1, "next": null, "previous": null,
+  "results": [
+    { "id": 5,
+      "organization": { "id": 3, "name": "Python Berlin e.V.", "slug": "python-berlin-ev" },
+      "url": "https://example.com/meetups.ics", "platform": "homepage",
+      "fetch_interval_minutes": 60, "last_fetched_at": null, "next_due_at": null }
+  ]
+}
+```
+
+### `POST /api/ingestion/runs/` — report a run
+
+Requires `events.add_ingestionrun`. Creates a run (defaults to `status=running`,
+`reported_by` = the caller, `started_at` = now if omitted). `source` (id) is required.
+
+```bash
+curl -X POST http://localhost:8000/api/ingestion/runs/ \
+  -H "Authorization: Api-Key $KEY" -H 'Content-Type: application/json' \
+  -d '{"source": 5}'
+# → 201 { "id": 12, "source": 5, "status": "running", "started_at": "...", ... }
+```
+
+### `POST /api/ingestion/runs/<id>/success/` — finish (succeeded)
+
+Requires `events.change_ingestionrun`. Sets `status=succeeded`, `finished_at=now`, takes
+optional `events_found`. Also stamps the source's `last_fetched_at` and
+`next_due_at` (= now + `fetch_interval_minutes`).
+
+### `POST /api/ingestion/runs/<id>/failure/` — finish (failed)
+
+Requires `events.change_ingestionrun`. Sets `status=failed`, `finished_at=now`, takes
+optional `error_message`. Also stamps the source schedule.
+
+> `PATCH /api/ingestion/runs/<id>/` (requires `events.change_ingestionrun`) finishes a run
+> the same way when its `status` moves to `succeeded`/`failed`.
+
+### `POST /api/ingestion/observations/` — submit an observation
+
+Requires `events.add_eventobservation`. Creates one observation forced to `status=pending`.
+`source` (id) is required; `run` (id) is optional. `latitude`/`longitude` are write-only
+and stored as `location`. A body `status` is **ignored** (always pending).
+
+```bash
+curl -X POST http://localhost:8000/api/ingestion/observations/ \
+  -H "Authorization: Api-Key $KEY" -H 'Content-Type: application/json' \
+  -d '{
+    "source": 5, "run": 12,
+    "title": "Rust Meetup",
+    "starts_at": "2026-09-10T19:00:00+02:00",
+    "url": "https://example.com/rust", "platform": "meetup",
+    "attendance_mode": "physical", "event_type": "meetup",
+    "venue_name": "Factory Berlin", "venue_city": "Berlin",
+    "latitude": 52.52, "longitude": 13.405,
+    "raw_payload": { "…full extractor payload…": true }
+  }'
+# → 201 { "id": 88, "status": "pending", "latitude": 52.52, "longitude": 13.405, ... }
+```
+
+### `POST /api/ingestion/observations/bulk/` — submit many
+
+Requires `events.add_eventobservation`. Body: `{"observations": [ <observation>, … ]}`.
+Created transactionally (all-or-nothing); each forced to `status=pending`.
+
+### `GET /api/ingestion/observations/` — list submitted
+
+Requires `events.view_eventobservation`. Filter by `?source=`, `?run=`, `?status=`.
+(`GET /api/ingestion/runs/` lists runs, requires `events.view_ingestionrun`.) Reviewing and
+promoting observations is an **operator action in the backoffice**, never done by the
+extractor — see [Admin backoffice](admin.md#event-observations--promotion).
 
 ---
 
@@ -368,7 +511,11 @@ Returns `204`.
 | --- | --- |
 | `python manage.py createsuperuser` | Django admin login |
 | `python manage.py seed_cities` | load the European city gazetteer (idempotent) |
-| `python manage.py seed` | sample venues/organizers/categories/events |
+| `python manage.py seed` | sample venues/organizations/categories/events |
 | `python manage.py create_service_account <name> --group <group>` | provision a system client (prints a one-time secret) |
+
+Provision the extractor once (create the `ingestion` group + a service account in it, then
+issue the account an API key) — see
+[Authentication § The ingestion group](authentication.md#the-ingestion-group).
 
 Run inside the container: `docker compose exec web python manage.py <command>`.

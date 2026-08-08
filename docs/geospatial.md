@@ -5,7 +5,8 @@ gazetteer** lets end users discover events without knowing coordinates.
 
 ## Storage
 
-Both `Event` and `Venue` have a `location` field, and the `City` gazetteer has a centroid:
+`Event`, `Venue`, and `EventObservation` each have a `location` field, and the `City`
+gazetteer has a centroid:
 
 ```python
 location = models.PointField(geography=True, srid=4326)
@@ -63,6 +64,10 @@ Rules:
 - `lat`, `lon`, and `radius_km` must **all** be supplied together (else `400`).
 - `radius_km` must be a non-negative number (else `400`).
 - Events with no `location` are **excluded** from proximity results.
+- **Online events are excluded** from proximity even if they carry a location — an online
+  event has no physical "near". `attendance_mode=online` is filtered out; `hybrid` events
+  keep a physical presence and stay in. (Implemented in `apply_proximity` via
+  `qs.exclude(attendance_mode=Event.AttendanceMode.ONLINE)`.)
 - When a proximity filter is active, `?ordering=` is ignored — results are always
   distance-ordered. (Non-proximity listings fall back to the model's default ordering.)
 - The GiST index makes `ST_DWithin` efficient even over the full events table.

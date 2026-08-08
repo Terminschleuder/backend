@@ -1,4 +1,4 @@
-"""Seed the database with a few sample venues, organizers, categories and events.
+"""Seed the database with a few sample venues, organizations, categories and events.
 
 Usage:
     python manage.py seed
@@ -10,7 +10,7 @@ from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
-from events.models import Category, Event, Organizer, Venue
+from events.models import Category, Event, Organization, Venue
 
 User = get_user_model()
 
@@ -19,7 +19,7 @@ class Command(BaseCommand):
     help = "Seed the database with sample events data."
 
     def handle(self, *args, **options):
-        organizer, _ = Organizer.objects.get_or_create(
+        organization, _ = Organization.objects.get_or_create(
             name="Berlin Tech Meetups",
             defaults={"description": "Local tech meetups in Berlin.", "website": ""},
         )
@@ -37,7 +37,7 @@ class Command(BaseCommand):
                 description="Talks and drinks about Django.",
                 starts_at=now + timedelta(days=7),
                 venue=venue,
-                organizer=organizer,
+                organization=organization,
                 capacity=80,
             ).categories.add(tech)
 
@@ -47,8 +47,8 @@ class Command(BaseCommand):
                 description="Local acoustic acts.",
                 starts_at=now + timedelta(days=14),
                 venue=venue,
-                organizer=organizer,
+                organization=organization,
                 capacity=60,
             ).categories.add(music)
 
-        self.stdout.write(self.style.SUCCESS("Seeded sample events, venues and organizers."))
+        self.stdout.write(self.style.SUCCESS("Seeded sample events, venues and organizations."))

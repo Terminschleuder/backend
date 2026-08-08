@@ -125,11 +125,52 @@ g.permissions.add(*Permission.objects.filter(codename__in=['add_event','change_e
 > (`User.objects.get(pk=user.pk)`) before re-checking `has_perm`, or the cached negative
 > result will persist.
 
-### Venues / organizers / categories
+### The ingestion group
+
+The external extractor is a service account placed in an **`ingestion`** group that carries
+exactly the model permissions its API surface needs. The `IsIngestionService` permission
+class reads each ingestion view's `ingestion_perms` map (HTTP method **or** action → required
+perms) and requires all of them.
+
+| Perm | Grants |
+| --- | --- |
+| `events.view_eventsource` | `GET /api/ingestion/sources/due/` |
+| `events.add_ingestionrun` | `POST /api/ingestion/runs/` |
+| `events.change_ingestionrun` | finish a run (`PATCH`, `/success/`, `/failure/`) |
+| `events.view_ingestionrun` | `GET /api/ingestion/runs/` |
+| `events.add_eventobservation` | `POST /api/ingestion/observations/` (+ `bulk/`) |
+| `events.view_eventobservation` | `GET /api/ingestion/observations/` |
+
+Provision it once (create the group with the perms, create the extractor service account in
+it, then issue the account an API key):
+
+```bash
+docker compose exec web python manage.py shell -c "
+from django.contrib.auth.models import Group, Permission
+g, _ = Group.objects.get_or_create(name='ingestion')
+g.permissions.add(*Permission.objects.filter(
+    content_type__app_label='events',
+    codename__in=['view_eventsource','add_ingestionrun','change_ingestionrun',
+                  'view_ingestionrun','add_eventobservation','view_eventobservation']))
+"
+docker compose exec web python manage.py create_service_account extractor --group ingestion \
+  --description "External extraction system"
+# then issue the extractor an API key (via /api/auth/api-keys/ as an admin, or the backoffice)
+```
+
+The extractor then authenticates with `Authorization: Api-Key <raw-key>`. **Promotion and
+the event lifecycle are operator actions** — the ingestion perms deliberately exclude
+`add_event` / `change_event` / `change_eventobservation`. An operator (with
+`events.add_event` + `events.change_eventobservation`) promotes an accepted observation in
+the backoffice; publish/cancel/archive require `events.change_event`.
+
+### Venues / organizations / categories
 
 These use DRF's default `IsAuthenticatedOrReadOnly` plus standard model permissions for
 writes: a service account needs `events.add_venue` / `events.change_venue` / etc. to mutate
-them; authenticated human users may create freely.
+them; authenticated human users may create freely. **Organizations** are read-only in the
+public API (managed in the backoffice); there is no `add`/`change`/`delete` organization
+endpoint.
 
 ## Backoffice access (the `admin` app)
 
