@@ -27,6 +27,8 @@ env/
 *.sqlite3
 *.sqlite3-journal
 *.db
+# keep the Postgres image build file despite the *.db rule above
+!Dockerfile.db
 
 # ---- Testing / coverage ----
 .pytest_cache/
