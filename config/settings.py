@@ -16,6 +16,16 @@ env = environ.Env(
     DEBUG=(bool, False),
     SECRET_KEY=(str, "django-insecure-change-me"),
     ALLOWED_HOSTS=(list, []),
+    # Default trusted origins are the production domain this project lives on,
+    # so CSRF works out of the box even if the env var is unset on the server.
+    # The ``https://*.terminschleuder.online`` wildcard (Django matches it via
+    # ``is_same_domain``) covers the apex, www, and every subdomain over HTTPS.
+    # Override via the environment for a different/staging domain.
+    CSRF_TRUSTED_ORIGINS=(list, [
+        "https://terminschleuder.online",
+        "https://www.terminschleuder.online",
+        "https://*.terminschleuder.online",
+    ]),
     DATABASE_URL=(str, "postgis://terminschleuder:terminschleuder@127.0.0.1:5432/terminschleuder"),
 )
 environ.Env.read_env(BASE_DIR / ".env")
@@ -26,6 +36,15 @@ environ.Env.read_env(BASE_DIR / ".env")
 SECRET_KEY = env("SECRET_KEY")
 DEBUG = env("DEBUG")
 ALLOWED_HOSTS = env("ALLOWED_HOSTS")
+# Origins allowed to issue cross-origin unsafe requests (POST/PUT/DELETE) under
+# CSRF. In production (DEBUG=False) Django checks the request ``Origin`` header
+# against this list; a browser on https://www.example.com sending a login POST
+# will be rejected unless https://www.example.com is listed here. Comma-separated,
+# including the scheme. A ``https://*.example.com`` entry is a subdomain wildcard
+# (matched via Django's ``is_same_domain``) covering the apex and all subdomains.
+# The default (set in the Env schema above) already trusts terminschleuder.online,
+# www, and *.terminschleuder.online — override here only for a different domain.
+CSRF_TRUSTED_ORIGINS = env("CSRF_TRUSTED_ORIGINS")
 
 
 # Application definition
