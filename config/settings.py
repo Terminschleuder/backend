@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'django_filters',
 
     # Local
+    'admin.apps.AdminConfig',  # backoffice (custom AdminSite); label "backoffice"
     'accounts',
     'events',
     'locations',
@@ -126,6 +127,11 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.1/howto/static-files/
 
 STATIC_URL = 'static/'
+
+
+# Auth redirects — the backoffice (custom AdminSite) is mounted at "/".
+LOGIN_URL = '/login/'
+LOGIN_REDIRECT_URL = '/'
 
 
 # Email

@@ -16,5 +16,6 @@ which GitHub renders inline).
 | [API reference](api-reference.md) | Every endpoint: params, request/response examples, status codes, errors, pagination. |
 | [Authentication](authentication.md) | JWT, API keys, service/system users, groups, permissions, and event ownership. |
 | [Geospatial & cities](geospatial.md) | PostGIS location storage, proximity search, `?near_city=`, the city catalog and seeding. |
+| [Admin backoffice](admin.md) | The `admin` app: custom `AdminSite` at `/`, service-account & API-key issuance, group/city/event maintenance. |
 
 > For the quickstart (running it locally), see the [top-level README](../README.md).

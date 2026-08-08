@@ -1,0 +1,40 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+  <a href="{% url 'admin:index' %}">{% trans "Home" %}</a>
+  &rsaquo; {% trans "Generated" %}
+</div>
+{% endblock %}
+
+{% block content %}
+  <h1>{{ kind|capfirst }} {% if items %}secrets{% else %}secret{% endif %}</h1>
+
+  {% if secret %}
+    <p class="help">
+      {% blocktrans with kind=kind %}
+        Copy this {{ kind }} secret now. It will <strong>not</strong> be shown again.
+      {% endblocktrans %}
+    </p>
+    <p><code id="secret" style="font-size:1.1em; word-break:break-all;">{{ secret }}</code></p>
+  {% endif %}
+
+  {% if items %}
+    <p class="help">
+      {% blocktrans %}
+        The following secrets were regenerated. Copy them now — they will
+        <strong>not</strong> be shown again.
+      {% endblocktrans %}
+    </p>
+    <ul>
+      {% for obj, secret in items %}
+        <li><strong>{{ obj }}</strong>: <code style="word-break:break-all;">{{ secret }}</code></li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+
+  <p>
+    <a href="{% url 'admin:index' %}" class="button">{% trans "Back to home" %}</a>
+  </p>
+{% endblock %}

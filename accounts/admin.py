@@ -4,7 +4,6 @@ from django.contrib.auth.admin import UserAdmin
 from .models import APIKey, User
 
 
-@admin.register(User)
 class CustomUserAdmin(UserAdmin):
     """Admin for our custom user, reusing Django's full UserAdmin."""
 
@@ -15,7 +14,6 @@ class CustomUserAdmin(UserAdmin):
     )
 
 
-@admin.register(APIKey)
 class APIKeyAdmin(admin.ModelAdmin):
     list_display = ("name", "prefix", "user", "created", "revoked", "expires_at")
     list_filter = ("revoked",)

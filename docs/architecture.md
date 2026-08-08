@@ -44,6 +44,23 @@ flowchart LR
 | `events` | Events, venues, organizers, categories; proximity search; ownership permissions. |
 | `accounts` | Users, service/system accounts, API keys, JWT views, registration. |
 | `locations` | City gazetteer (catalog + `?near_city=` resolution); seeded from GeoNames. |
+| `admin` | Human backoffice: a custom `AdminSite` (`terminschleuder_admin`) mounted at `/`, reusing Django session auth. Owns service-account & API-key issuance, group/city/event maintenance. App label `backoffice` (the package is `admin` but the label is overridden to avoid clashing with `django.contrib.admin`). |
+
+## URL routing
+
+```mermaid
+flowchart LR
+    R["Request"] --> P{"path prefix?"}
+    P -->|"/api/auth/"| Auth["accounts (register/login/token/me/api-keys)"]
+    P -->|"/api/"| API["events + locations (DRF routers)"]
+    P -->|"/admin/"| Redir["301 -> /"]
+    P -->|"/  (everything else)"| Back["terminschleuder_admin (backoffice)"]
+```
+
+The API includes are listed **before** `path("", terminschleuder_admin.urls)` so the admin
+site's permissive catch-all never shadows `/api/...`. The backoffice uses Django session auth
++ `is_staff`; anonymous `/` redirects to `/login/`. See [Authentication](authentication.md)
+and [Admin backoffice](admin.md).
 
 ## Request lifecycle
 
@@ -113,6 +130,7 @@ JWT access tokens live 15 min, refresh tokens 7 days, signed with `SECRET_KEY`.
 ├── requirements.txt
 ├── start.sh                  # thin `docker compose up` wrapper
 ├── config/                   # Django project: settings, urls, wsgi, asgi, pagination
+├── admin/                    # backoffice: custom AdminSite at / (label "backoffice")
 ├── events/                   # events, venues, organizers, categories + proximity
 ├── accounts/                 # users, service accounts, API keys, JWT views
 ├── locations/                # city gazetteer (City model, /api/cities/, seed_cities)

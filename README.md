@@ -17,6 +17,7 @@ authentication** for external and service clients.
 - [Local development & testing](#local-development--testing)
 - [Configuration](#configuration)
 - [API reference](#api-reference)
+- [Admin backoffice](#admin-backoffice)
 - [Documentation](#documentation)
 - [Production notes](#production-notes)
 - [Project structure](#project-structure)
@@ -88,23 +89,22 @@ couple of minutes). Subsequent starts are fast.
 
 The server listens on **http://localhost:8000**.
 
-> **Heads-up:** the bare root path `/` returns **404 by design** — there is no route there.
-> Use one of the mounted prefixes below.
-
 | URL                                  | What it is                              |
 | ------------------------------------ | --------------------------------------- |
-| `http://localhost:8000/admin/`       | Django admin (backoffice)               |
+| `http://localhost:8000/`             | **Backoffice** (admin login) — anon redirects to `/login/` |
+| `http://localhost:8000/admin/`       | redirects to `/` (kept for old bookmarks) |
 | `http://localhost:8000/api/`         | API root — lists all event endpoints    |
 | `http://localhost:8000/api/auth/`    | auth endpoints (register/login/me/token) |
 
-`/api/` and the individual collections render DRF's **browsable API** in a browser.
+`/api/` and the individual collections render DRF's **browsable API** in a browser. The
+backoffice at `/` is a custom Django `AdminSite` (see [Admin backoffice](#admin-backoffice)).
 
 ### 3. Create an admin user / seed sample data
 
 In a separate terminal while the stack is running:
 
 ```bash
-# Admin login for /admin/
+# Backoffice login for / (root)
 docker compose exec web python manage.py createsuperuser
 
 # City gazetteer (all European cities >= 50k population) — powers ?near_city=
@@ -264,6 +264,33 @@ A service account is a normal Django user (so it obtains JWTs / API keys and car
 - `PATCH` / `DELETE /api/events/<id>/` — allowed for the **owner** (`created_by`), a member
   of the event's **`owner_group`**, or any holder of the matching model permission.
 
+## Admin backoffice
+
+The human backoffice is a custom Django `AdminSite` (the `admin` app, app label `backoffice`)
+mounted at the **root (`/`)**. It reuses the project's Django auth — log in with a **staff**
+user (e.g. the superuser from `createsuperuser`). Anonymous visitors are redirected to
+`/login/`. The old `/admin/` path redirects to `/`.
+
+It covers all the operator tasks:
+
+- **Users** — create/manage human users (set `is_staff` to grant backoffice access; assign
+  groups). Passwords are hashed via Django's forms.
+- **Service / system accounts** — a dedicated, pre-filtered list (proxy of `User`). Creating
+  one generates a random **app secret** and shows it **once** (use it to obtain a JWT or as
+  the API-key owner). `is_service_account` is forced on, `is_staff` off. A "Regenerate app
+  secret" action re-rolls it for existing accounts.
+- **Groups** — maintain Django groups & permissions; groups drive event `owner_group` and
+  service-account powers.
+- **API keys** — issue a long-lived key; the **raw key is shown once** (only the prefix/hash
+  are stored). Revoke by editing `revoked`. Raw keys are never listed.
+- **Cities** — maintain the gazetteer (add/edit, toggle `is_active`). Bulk re-seed stays the
+  `seed_cities` command.
+- **Events / venues / organizers / categories** — full CRUD; new events default
+  `created_by` to the operator and protect `created_at`/`updated_at`.
+
+> The backoffice uses **session auth + `is_staff`** on the same custom `User` the API uses —
+> no separate auth system. See [docs/admin.md](docs/admin.md) for the full guide.
+
 ## Documentation
 
 This README is the quickstart. For the full functional documentation — architecture, data
@@ -301,6 +328,7 @@ The compose override only swaps in `runserver` for dev. For production:
 ├── requirements.txt
 ├── start.sh                  # thin `docker compose up` wrapper
 ├── config/                   # Django project: settings, urls, wsgi, asgi
+├── admin/                    # backoffice (custom AdminSite at /, service-account & API-key flows)
 ├── events/                   # events, venues, organizers, categories + proximity
 ├── accounts/                 # users, service accounts, API keys, JWT views
 ├── locations/                # city gazetteer (City model, /api/cities/, seed_cities)
@@ -311,8 +339,9 @@ The compose override only swaps in `runserver` for dev. For production:
 
 ## Troubleshooting
 
-- **`/` returns 404** — expected. The app is mounted at `/admin/` and `/api/`; there is no
-  root route. See [Open the app](#2-open-the-app).
+- **`/` redirects to `/login/`** — expected. The root is the backoffice (custom admin site);
+  log in with a staff/superuser. `/admin/` redirects to `/`. See [Open the app](#2-open-the-app)
+  and [Admin backoffice](#admin-backoffice).
 - **Admin shows a login page but I can't log in** — create a superuser first:
   `docker compose exec web python manage.py createsuperuser`.
 - **`docker compose` commands fail with a DB connection error** — make sure the `db`
