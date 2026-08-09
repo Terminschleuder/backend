@@ -138,7 +138,7 @@
           <a href="/api/schema/swagger-ui/">API</a>
           <a href="/api/schema/redoc/">Docs</a>
           <a href="/admin/">Backoffice</a>
-          <a href="https://github.com/Terminschleuder">Source</a>
+          <a href="https://github.com/Terminschleuder" target="_blank" rel="noopener noreferrer">Source</a>
         </nav>
       </div>
     </header>
@@ -154,7 +154,7 @@
           multi-tenant organization ownership.
         </p>
         <div class="cta-row">
-          <a class="btn btn-primary" href="https://demo.terminschleuder.onlinehttps://github.com/Terminschleuder">Try the demo →</a>
+          <a class="btn btn-primary" href="https://demo.terminschleuder.online" target="_blank" rel="noopener noreferrer">Try the demo →</a>
           <a class="btn btn-ghost" href="/api/schema/swagger-ui/">Explore the API</a>
         </div>
       </div>
@@ -199,7 +199,7 @@
 
         <div class="api" aria-label="Example API request">
           <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
-<pre><span class="c-key">$</span> curl <span class="c-str">"http://localhost:8000/api/events/?near_city=berlin-de&amp;radius_km=20"</span>
+<pre id="api-example"><span class="c-key">$</span> curl <span class="c-str">"http://localhost:8000/api/events/?near_city=berlin-de&amp;radius_km=20"</span>
 
 {
   <span class="c-key">"count"</span>: <span class="c-num">45</span>,
@@ -229,13 +229,27 @@
           <a href="/api/schema/redoc/">ReDoc</a>
           <a href="/api/schema/">OpenAPI schema</a>
           <a href="/admin/">Backoffice</a>
-          <a href="https://demo.terminschleuder.online">Demo</a>
-          <a href="https://github.com/Terminschleuder">Source code</a>
+          <a href="https://demo.terminschleuder.online" target="_blank" rel="noopener noreferrer">Demo</a>
+          <a href="https://github.com/Terminschleuder" target="_blank" rel="noopener noreferrer">Source code</a>
         </div>
       </div>
       <div class="wrap" style="margin-top:14px;font-size:13px;">
         Apache License 2.0 · Map data © OpenStreetMap contributors
       </div>
     </footer>
+
+    <!--
+      The API example above hardcodes http://localhost:8000 as a no-JS fallback.
+      At load time, rewrite it to the origin that actually served this page, so the
+      curl/JSON examples always reflect the real deployment URL.
+    -->
+    <script>
+      (function () {
+        var pre = document.getElementById("api-example");
+        if (!pre) return;
+        var base = location.origin; // scheme + host + port, e.g. https://terminschleuder.example.com
+        pre.innerHTML = pre.innerHTML.split("http://localhost:8000").join(base);
+      })();
+    </script>
   </body>
 </html>
