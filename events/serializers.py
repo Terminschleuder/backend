@@ -114,6 +114,9 @@ class EventSerializer(serializers.ModelSerializer):
     source = EventSourceNestedSerializer(read_only=True)
     promoted_from = EventObservationNestedSerializer(read_only=True)
 
+    # Optional hero image — read-only absolute URL (uploads happen in the backoffice).
+    hero_image = serializers.ImageField(read_only=True)
+
     # Write-only handles for create/update by id.
     category_ids = serializers.PrimaryKeyRelatedField(
         source="categories",
@@ -159,6 +162,7 @@ class EventSerializer(serializers.ModelSerializer):
             "description",
             "starts_at",
             "ends_at",
+            "hero_image",
             "venue",
             "organization",
             "categories",

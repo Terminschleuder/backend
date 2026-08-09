@@ -62,6 +62,7 @@ A canonical event — the trusted, published record exposed to consumers.
 | `description` | TextField | blank allowed |
 | `starts_at` | DateTimeField | indexed (asc + desc) |
 | `ends_at` | DateTimeField | nullable |
+| `hero_image` | ImageField | nullable; optional hero/banner image. File stored under `MEDIA_ROOT/events/hero/` (persistent Docker `media` volume); only the path is in the DB. The API exposes its absolute URL (read-only); uploads happen in the backoffice. Requires `Pillow`. |
 | `venue` | FK → Venue | nullable (SET_NULL) |
 | `organization` | FK → Organization | nullable (SET_NULL); replaces the former `organizer` |
 | `categories` | M2M → Category | blank allowed |

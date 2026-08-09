@@ -31,7 +31,9 @@ flowchart LR
     subgraph compose["docker compose"]
         Web["web (Django + DRF)\nGDAL/GEOS/PROJ bundled\nrunserver (dev) / gunicorn (prod)"]
         DB[("db (PostgreSQL 17 + PostGIS)\npgdata volume")]
+        Media[("media volume\n(event hero images)")]
         Web -->|postgis:// :5432| DB
+        Web -.->|/app/media| Media
     end
 ```
 
@@ -39,6 +41,10 @@ flowchart LR
   `pgdata` named volume persists data across restarts.
 - **web** — the Django app. In dev it runs `migrate` then `runserver` with the source
   bind-mounted for hot reload; the image's default `CMD` is `gunicorn` for production.
+- **media volume** — persists uploaded/generated event hero images at `/app/media` (mounted
+  over the source bind mount so uploads survive restarts). Served at `/media/` in dev
+  (`DEBUG=True`); in production the reverse proxy serves `/media/` from this volume. As with
+  `pgdata`, `docker compose down -v` would wipe it — use `down` (no `-v`).
 
 ## Apps
 
@@ -58,7 +64,9 @@ flowchart LR
     P -->|"/api/auth/"| Auth["accounts (register/login/token/me/api-keys)"]
     P -->|"/api/ingestion/"| Ing["events.ingestion_urls (due sources / runs / observations)"]
     P -->|"/api/"| API["events + locations (DRF routers)"]
+    P -->|"/api/schema/"| Schema["OpenAPI 3 schema + Swagger/ReDoc"]
     P -->|"/admin/"| Redir["301 -> /"]
+    P -->|"/media/"| Media["uploaded media (dev only)"]
     P -->|"/  (everything else)"| Back["terminschleuder_admin (backoffice)"]
 ```
 
@@ -130,6 +138,9 @@ so DRF emits a `WWW-Authenticate` header and auth failures return **401** (not 4
 | Auth | djangorestframework-simplejwt (JWT) + custom hashed API keys |
 | GIS | GDAL / GEOS / PROJ (bundled in the image) |
 | Config | django-environ (`DATABASE_URL`), django-filter |
+| CORS | django-cors-headers (read-only GET/HEAD/OPTIONS for the demo client; no credentials) |
+| API docs | drf-spectacular (OpenAPI 3 schema at `/api/schema/` + Swagger UI / ReDoc) |
+| Imaging | Pillow (`ImageField` validation + generated hero banners in `seed_demo`) |
 | Tests | pytest + pytest-django |
 | Runtime | Docker + Docker Compose |
 
@@ -144,8 +155,13 @@ Settings come from the environment via `django-environ`. Local dev is self-conta
 | `DEBUG` | `False` | Compose sets `True` for dev. |
 | `ALLOWED_HOSTS` | `[]` | Compose sets `*` for dev. |
 | `DATABASE_URL` | `postgis://terminschleuder:terminschleuder@127.0.0.1:5432/terminschleuder` | Compose overrides to the `db` host. |
+| `CORS_ALLOW_ALL_ORIGINS` | `True` | Read-only GET/HEAD/OPTIONS from any origin (demo-friendly). Set `False` in prod. |
+| `CORS_ALLOWED_ORIGINS` | `[]` | Allowed origins when `CORS_ALLOW_ALL_ORIGINS=False`. |
 
 JWT access tokens live 15 min, refresh tokens 7 days, signed with `SECRET_KEY`.
+
+Media: `MEDIA_URL = /media/`, `MEDIA_ROOT = /app/media` (the `media` volume). Event hero
+images are stored under `events/hero/`; the API exposes their absolute URL read-only.
 
 ## Testing & CI
 
@@ -171,10 +187,11 @@ JWT access tokens live 15 min, refresh tokens 7 days, signed with `SECRET_KEY`.
 │   │                          EventObservation); event lifecycle; extractor API
 │   ├── ingestion_views.py    #   /api/ingestion/ views (due sources, runs, observations)
 │   ├── ingestion_urls.py     #   /api/ingestion/ routes
-│   └── ingestion_serializers.py  # extractor-facing serializers
+│   ├── ingestion_serializers.py  # extractor-facing serializers
+│   └── data/seed/*.json      #   demo seed data (regenerate via build_demo_fixture.py)
 ├── accounts/                 # users, service accounts, API keys, JWT views
 ├── locations/                # city gazetteer (City model, /api/cities/, seed_cities)
-├── scripts/                  # offline tools (build_european_cities_fixture.py)
+├── scripts/                  # offline tools (build_european_cities_fixture.py, build_demo_fixture.py)
 ├── docs/                     # this documentation
 ├── conftest.py               # shared pytest fixtures
 └── pytest.ini

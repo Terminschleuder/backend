@@ -1,0 +1,162 @@
+[
+  {
+    "organization_slug": "berlin-python-meetup",
+    "url": "https://www.berlin-python.org/events.ics",
+    "platform": "homepage",
+    "is_approved": true,
+    "is_active": true,
+    "fetch_interval_minutes": 60
+  },
+  {
+    "organization_slug": "frontend-berlin",
+    "url": "https://frontend-berlin.example/events",
+    "platform": "eventbrite",
+    "is_approved": true,
+    "is_active": true,
+    "fetch_interval_minutes": 60
+  },
+  {
+    "organization_slug": "data-science-berlin",
+    "url": "https://data-science-berlin.example/events.ics",
+    "platform": "ics",
+    "is_approved": true,
+    "is_active": true,
+    "fetch_interval_minutes": 60
+  },
+  {
+    "organization_slug": "hamburgjs",
+    "url": "https://hamburgjs.example/events.xml",
+    "platform": "homepage",
+    "is_approved": true,
+    "is_active": true,
+    "fetch_interval_minutes": 60
+  },
+  {
+    "organization_slug": "hamburg-data",
+    "url": "https://hamburg-data.example/events",
+    "platform": "meetup",
+    "is_approved": true,
+    "is_active": true,
+    "fetch_interval_minutes": 60
+  },
+  {
+    "organization_slug": "munich-ai-lab",
+    "url": "https://munich-ai-lab.example/events",
+    "platform": "eventbrite",
+    "is_approved": true,
+    "is_active": true,
+    "fetch_interval_minutes": 60
+  },
+  {
+    "organization_slug": "munich-mobile-devs",
+    "url": "https://munich-mobile-devs.example/events.ics",
+    "platform": "ics",
+    "is_approved": true,
+    "is_active": true,
+    "fetch_interval_minutes": 60
+  },
+  {
+    "organization_slug": "vienna-devops-days",
+    "url": "https://vienna-devops-days.example/events.xml",
+    "platform": "homepage",
+    "is_approved": true,
+    "is_active": true,
+    "fetch_interval_minutes": 60
+  },
+  {
+    "organization_slug": "prague-pyvo",
+    "url": "https://prague-pyvo.example/events",
+    "platform": "meetup",
+    "is_approved": true,
+    "is_active": true,
+    "fetch_interval_minutes": 60
+  },
+  {
+    "organization_slug": "amsterdam-js",
+    "url": "https://amsterdam-js.example/events",
+    "platform": "eventbrite",
+    "is_approved": true,
+    "is_active": true,
+    "fetch_interval_minutes": 60
+  },
+  {
+    "organization_slug": "brussels-bytes",
+    "url": "https://brussels-bytes.example/events.ics",
+    "platform": "ics",
+    "is_approved": true,
+    "is_active": true,
+    "fetch_interval_minutes": 60
+  },
+  {
+    "organization_slug": "paris-jug",
+    "url": "https://paris-jug.example/events.xml",
+    "platform": "homepage",
+    "is_approved": true,
+    "is_active": true,
+    "fetch_interval_minutes": 60
+  },
+  {
+    "organization_slug": "copenhagen-code",
+    "url": "https://copenhagen-code.example/events",
+    "platform": "meetup",
+    "is_approved": true,
+    "is_active": true,
+    "fetch_interval_minutes": 60
+  },
+  {
+    "organization_slug": "stockholm-swift",
+    "url": "https://stockholm-swift.example/events",
+    "platform": "eventbrite",
+    "is_approved": true,
+    "is_active": true,
+    "fetch_interval_minutes": 60
+  },
+  {
+    "organization_slug": "lisbon-data",
+    "url": "https://lisbon-data.example/events.ics",
+    "platform": "ics",
+    "is_approved": true,
+    "is_active": true,
+    "fetch_interval_minutes": 60
+  },
+  {
+    "organization_slug": "barcelona-backend",
+    "url": "https://barcelona-backend.example/events.xml",
+    "platform": "homepage",
+    "is_approved": true,
+    "is_active": true,
+    "fetch_interval_minutes": 60
+  },
+  {
+    "organization_slug": "madrid-machine-learning",
+    "url": "https://madrid-machine-learning.example/events",
+    "platform": "meetup",
+    "is_approved": true,
+    "is_active": true,
+    "fetch_interval_minutes": 60
+  },
+  {
+    "organization_slug": "dublin-devs",
+    "url": "https://dublin-devs.example/events",
+    "platform": "eventbrite",
+    "is_approved": true,
+    "is_active": true,
+    "fetch_interval_minutes": 60
+  },
+  {
+    "organization_slug": "dresden-robotics",
+    "url": "https://dresden-robotics.example/events.ics",
+    "platform": "ics",
+    "is_approved": true,
+    "is_active": true,
+    "fetch_interval_minutes": 60
+  },
+  {
+    "organization_slug": "legacy-events-org",
+    "url": "https://legacy-events-org.example/events.xml",
+    "platform": "homepage",
+    "is_approved": false,
+    "is_active": true,
+    "fetch_interval_minutes": 60
+  }
+]

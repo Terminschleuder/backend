@@ -1,0 +1,182 @@
+[
+  {
+    "name": "Berlin Python Meetup",
+    "slug": "berlin-python-meetup",
+    "description": "Berlin Python Meetup — a community organizing events in Berlin.",
+    "website": "https://berlin-python-meetup.example",
+    "is_active": true,
+    "is_owner": true,
+    "home_city": "Berlin"
+  },
+  {
+    "name": "Frontend Berlin",
+    "slug": "frontend-berlin",
+    "description": "Frontend Berlin — a community organizing events in Berlin.",
+    "website": "https://frontend-berlin.example",
+    "is_active": true,
+    "is_owner": false,
+    "home_city": "Berlin"
+  },
+  {
+    "name": "Data Science Berlin",
+    "slug": "data-science-berlin",
+    "description": "Data Science Berlin — a community organizing events in Berlin.",
+    "website": "https://data-science-berlin.example",
+    "is_active": true,
+    "is_owner": false,
+    "home_city": "Berlin"
+  },
+  {
+    "name": "Hamburg.js",
+    "slug": "hamburgjs",
+    "description": "Hamburg.js — a community organizing events in Hamburg.",
+    "website": "https://hamburgjs.example",
+    "is_active": true,
+    "is_owner": false,
+    "home_city": "Hamburg"
+  },
+  {
+    "name": "Hamburg Data",
+    "slug": "hamburg-data",
+    "description": "Hamburg Data — a community organizing events in Hamburg.",
+    "website": "https://hamburg-data.example",
+    "is_active": true,
+    "is_owner": false,
+    "home_city": "Hamburg"
+  },
+  {
+    "name": "Munich AI Lab",
+    "slug": "munich-ai-lab",
+    "description": "Munich AI Lab — a community organizing events in Munich.",
+    "website": "https://munich-ai-lab.example",
+    "is_active": true,
+    "is_owner": false,
+    "home_city": "Munich"
+  },
+  {
+    "name": "Munich Mobile Devs",
+    "slug": "munich-mobile-devs",
+    "description": "Munich Mobile Devs — a community organizing events in Munich.",
+    "website": "https://munich-mobile-devs.example",
+    "is_active": true,
+    "is_owner": false,
+    "home_city": "Munich"
+  },
+  {
+    "name": "Vienna DevOps Days",
+    "slug": "vienna-devops-days",
+    "description": "Vienna DevOps Days — a community organizing events in Vienna.",
+    "website": "https://vienna-devops-days.example",
+    "is_active": true,
+    "is_owner": false,
+    "home_city": "Vienna"
+  },
+  {
+    "name": "Prague Pyvo",
+    "slug": "prague-pyvo",
+    "description": "Prague Pyvo — a community organizing events in Prague.",
+    "website": "https://prague-pyvo.example",
+    "is_active": true,
+    "is_owner": false,
+    "home_city": "Prague"
+  },
+  {
+    "name": "Amsterdam JS",
+    "slug": "amsterdam-js",
+    "description": "Amsterdam JS — a community organizing events in Amsterdam.",
+    "website": "https://amsterdam-js.example",
+    "is_active": true,
+    "is_owner": false,
+    "home_city": "Amsterdam"
+  },
+  {
+    "name": "Brussels Bytes",
+    "slug": "brussels-bytes",
+    "description": "Brussels Bytes — a community organizing events in Brussels.",
+    "website": "https://brussels-bytes.example",
+    "is_active": true,
+    "is_owner": false,
+    "home_city": "Brussels"
+  },
+  {
+    "name": "Paris JUG",
+    "slug": "paris-jug",
+    "description": "Paris JUG — a community organizing events in Paris.",
+    "website": "https://paris-jug.example",
+    "is_active": true,
+    "is_owner": false,
+    "home_city": "Paris"
+  },
+  {
+    "name": "Copenhagen Code",
+    "slug": "copenhagen-code",
+    "description": "Copenhagen Code — a community organizing events in Copenhagen.",
+    "website": "https://copenhagen-code.example",
+    "is_active": true,
+    "is_owner": false,
+    "home_city": "Copenhagen"
+  },
+  {
+    "name": "Stockholm Swift",
+    "slug": "stockholm-swift",
+    "description": "Stockholm Swift — a community organizing events in Stockholm.",
+    "website": "https://stockholm-swift.example",
+    "is_active": true,
+    "is_owner": false,
+    "home_city": "Stockholm"
+  },
+  {
+    "name": "Lisbon Data",
+    "slug": "lisbon-data",
+    "description": "Lisbon Data — a community organizing events in Lisbon.",
+    "website": "https://lisbon-data.example",
+    "is_active": true,
+    "is_owner": false,
+    "home_city": "Lisbon"
+  },
+  {
+    "name": "Barcelona Backend",
+    "slug": "barcelona-backend",
+    "description": "Barcelona Backend — a community organizing events in Barcelona.",
+    "website": "https://barcelona-backend.example",
+    "is_active": true,
+    "is_owner": false,
+    "home_city": "Barcelona"
+  },
+  {
+    "name": "Madrid Machine Learning",
+    "slug": "madrid-machine-learning",
+    "description": "Madrid Machine Learning — a community organizing events in Madrid.",
+    "website": "https://madrid-machine-learning.example",
+    "is_active": true,
+    "is_owner": false,
+    "home_city": "Madrid"
+  },
+  {
+    "name": "Dublin Devs",
+    "slug": "dublin-devs",
+    "description": "Dublin Devs — a community organizing events in Dublin.",
+    "website": "https://dublin-devs.example",
+    "is_active": true,
+    "is_owner": false,
+    "home_city": "Dublin"
+  },
+  {
+    "name": "Dresden Robotics",
+    "slug": "dresden-robotics",
+    "description": "Dresden Robotics — a community organizing events in Dresden.",
+    "website": "https://dresden-robotics.example",
+    "is_active": true,
+    "is_owner": false,
+    "home_city": "Dresden"
+  },
+  {
+    "name": "Legacy Events Org",
+    "slug": "legacy-events-org",
+    "description": "Legacy Events Org — a community organizing events in Berlin.",
+    "website": "https://legacy-events-org.example",
+    "is_active": false,
+    "is_owner": false,
+    "home_city": "Berlin"
+  }
+]

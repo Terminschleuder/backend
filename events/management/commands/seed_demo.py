@@ -1,31 +1,45 @@
 """Seed a rich, coherent demo dataset across every area of the app.
 
-Populates organizations, venues, categories, event sources (approved /
-disabled / unapproved), ingestion runs (succeeded / failed / running),
-event observations (pending / accepted / rejected / promoted), and
-canonical events with full lifecycle and provenance variety — enough for a
-newcomer to open the backoffice or hit the public API and see real, usable
-content. Also provisions a demo operator user and the ``ingestion`` group.
+The bulk of the data (organizations, venues, categories, event sources, and
+400 canonical events) is **data-driven**: it is loaded from JSON files under
+``events/data/seed/`` (regenerate them with ``scripts/build_demo_fixture.py``).
+That keeps the seed declarative and easy to edit, while the small provenance
+demonstration (a couple of ingestion runs, a handful of observations, and one
+promoted canonical event) stays inline so the ingestion → review → promotion
+lifecycle stays readable in code.
+
+Populates 20 organizations (one inactive, hidden from the public API), 120
+venues across 15 European cities, 8 categories, 20 event sources, ingestion
+runs (succeeded / failed / running), event observations (pending / accepted /
+rejected / promoted), and 400 canonical events covering the full lifecycle and
+classification matrix. Each canonical event is given a generated placeholder
+**hero image** (a deterministic Pillow banner) so the catalog looks rich in the
+demo client. Also provisions a demo operator user and the ``ingestion`` Group.
 
 Usage:
     python manage.py seed_demo
 
 Idempotent and non-destructive: every object is created by a stable natural
-key (name / url / title+starts_at) with deterministic datetimes, so re-running
-never produces duplicates and never overwrites anything you've since edited.
-It is purely additive and never deletes, so it won't disturb your own data.
+key (slug / name+city / org+url / title) with deterministic datetimes, so
+re-running never produces duplicates and never overwrites anything you've
+since edited. Hero images are only generated+attached on create, so re-running
+won't clobber an image an operator chose afterwards. It is purely additive and
+never deletes, so it won't disturb your own data.
 
 Run inside the container:
     docker compose exec web python manage.py seed_demo
 """
 
+import json
 from datetime import datetime, timedelta, timezone as dt_tz
+from pathlib import Path
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, Permission
 from django.contrib.gis.geos import Point
+from django.core.files.base import ContentFile
 from django.core.management.base import BaseCommand
-from django.utils import timezone
+from django.utils.text import slugify
 
 from events.models import (
     Category,
@@ -47,6 +61,12 @@ DEMO_PASSWORD = "demo12345"
 UTC = dt_tz.utc
 BASE = datetime(2026, 9, 1, 17, 0, tzinfo=UTC)  # a stable reference instant
 
+# JSON seed data (regenerate with scripts/build_demo_fixture.py).
+DATA_DIR = Path(__file__).resolve().parents[2] / "data" / "seed"
+# URL of the Berlin Python Meetup source that the inline provenance relies on
+# (kept in sync with scripts/build_demo_fixture.py::PROMOTED_SOURCE_URL).
+PROMOTED_SOURCE_URL = "https://www.berlin-python.org/events.ics"
+
 
 def _dt(**kwargs):
     return BASE + timedelta(**kwargs)
@@ -56,15 +76,135 @@ def _point(lon, lat):
     return Point(float(lon), float(lat), srid=4326)
 
 
-def _slugify_title(title):
-    """Minimal slugify for demo observation URLs (keeps the command stdlib-only)."""
-    return title.lower().replace(" ", "-").replace(":", "")
+def _load(name):
+    path = DATA_DIR / f"{name}.json"
+    if not path.exists():
+        raise RuntimeError(
+            f"Demo seed data not found: {path}. Generate it with "
+            "`python scripts/build_demo_fixture.py`."
+        )
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _hero_image(title: str, *, category: str | None = None):
+    """Generate a deterministic 1200×400 placeholder banner PNG for ``title``.
+
+    One of three background styles (diagonal gradient / horizontal bands /
+    concentric arcs) over one of four palettes, both picked from a hash of the
+    title so 400 banners look varied rather than identical. An optional
+    ``category`` tints the accent colour. The title is word-wrapped onto a
+    translucent dark band for legibility. The gradient uses a tiny upscaled
+    image (no per-pixel Python loop) so seeding 400 banners stays fast.
+
+    Returns a ``ContentFile`` ready for ``FieldFile.save``. Pillow is required
+    (see requirements.txt); a missing Pillow raises a clear error rather than
+    corrupting the seed.
+    """
+    try:
+        from PIL import Image, ImageDraw, ImageFont
+    except ImportError as exc:  # pragma: no cover - env-dependent
+        raise RuntimeError(
+            "Pillow is required to generate demo hero images but isn't "
+            "installed. Add Pillow to requirements and rebuild the image."
+        ) from exc
+
+    import colorsys
+    import hashlib
+    from io import BytesIO
+
+    W, H = 1200, 400
+    n = int.from_bytes(hashlib.md5(title.encode("utf-8")).digest()[:4], "big")
+    style = n % 3
+    c1, c2 = [
+        ((28, 56, 110), (78, 150, 230)),   # deep blue
+        ((24, 100, 96), (86, 200, 178)),   # cool teal
+        ((120, 38, 78), (232, 110, 150)),  # warm magenta
+        ((42, 42, 58), (150, 150, 172)),   # mono slate
+    ][(n >> 3) % 4]
+
+    if category:
+        cat_hue = sum(ord(ch) for ch in category) % 360
+        r, g, b = colorsys.hsv_to_rgb(cat_hue / 360.0, 0.5, 0.85)
+        c2 = (
+            int(c2[0] * 0.5 + r * 255 * 0.5),
+            int(c2[1] * 0.5 + g * 255 * 0.5),
+            int(c2[2] * 0.5 + b * 255 * 0.5),
+        )
+
+    img = Image.new("RGB", (W, H), c1)
+    if style == 0:
+        # Diagonal gradient via a 2×2 image scaled up — smooth and fast.
+        grad = Image.new("RGB", (2, 2), c1)
+        grad.putpixel((1, 0), c2)
+        grad.putpixel((0, 1), c2)
+        grad.putpixel((1, 1), c1)
+        img = grad.resize((W, H), Image.BILINEAR)
+    else:
+        draw = ImageDraw.Draw(img)
+        if style == 1:
+            bands = 6
+            for b in range(bands):
+                t = b / (bands - 1)
+                fill = tuple(int(c1[k] * (1 - t) + c2[k] * t) for k in range(3))
+                draw.rectangle([0, H * b // bands, W, H * (b + 1) // bands], fill=fill)
+        else:
+            for r in range(80, 1000, 90):
+                shade = tuple(min(255, c2[k] + r // 6) for k in range(3))
+                draw.ellipse(
+                    [W - r, H // 2 - r, W + r, H // 2 + r], outline=shade, width=6
+                )
+
+    # Translucent dark band for legible text.
+    overlay = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    ImageDraw.Draw(overlay).rectangle([0, H - 120, W, H], fill=(0, 0, 0, 110))
+    img = Image.alpha_composite(img.convert("RGBA"), overlay).convert("RGB")
+    draw = ImageDraw.Draw(img)
+
+    font = None
+    for name in ("DejaVuSans-Bold.ttf",):
+        try:
+            font = ImageFont.truetype(name, 44)
+            break
+        except Exception:
+            continue
+    if font is None:
+        font = ImageFont.load_default()
+
+    def wrap(text, max_chars=46):
+        if len(text) <= max_chars:
+            return [text]
+        cut = text.rfind(" ", 0, max_chars) or max_chars
+        return [text[:cut].rstrip(), text[cut:].strip()[:max_chars]]
+
+    y = H - 92
+    for line in wrap(title):
+        draw.text((24, y), line, font=font, fill=(255, 255, 255))
+        y += 56
+
+    buf = BytesIO()
+    img.save(buf, format="PNG")
+    return ContentFile(buf.getvalue())
+
+
+def _attach_hero(event: Event, title: str, *, category: str | None = None) -> None:
+    """Save a generated hero image to ``event`` (call only on create)."""
+    filename = f"{slugify(title)}-{event.starts_at:%Y%m%d}.png"
+    event.hero_image.save(filename, _hero_image(title, category=category), save=False)
+    event.save(update_fields=["hero_image"])
 
 
 class Command(BaseCommand):
-    help = "Seed a rich, coherent demo dataset (organizations, sources, runs, observations, events)."
+    help = "Seed a rich, coherent demo dataset (JSON-driven: orgs, venues, categories, sources, 400 events, hero images)."
+
+    def add_arguments(self, parser):
+        parser.add_argument(
+            "--no-hero",
+            action="store_true",
+            help="Skip hero-image generation (faster; for tests / quick re-seeds).",
+        )
 
     def handle(self, *args, **options):
+        generate_hero = not options["no_hero"]
         operator = self._operator()
         self._ensure_ingestion_group()
 
@@ -72,15 +212,18 @@ class Command(BaseCommand):
         venues = self._venues()
         categories = self._categories()
         sources = self._event_sources(orgs)
+        self._canonical_events(orgs, venues, categories, operator, generate_hero)
+
+        # Inline provenance demonstration (small, fixed set).
         runs = self._ingestion_runs(sources, operator)
-        self._event_observations(sources, runs, operator)
-        self._canonical_events(orgs, venues, categories, operator)
-        self._promoted_event(sources, operator)
+        self._event_observations(sources, runs, operator, venues)
+        self._promoted_event(sources, operator, venues, generate_hero)
 
         self.stdout.write(self.style.SUCCESS(
-            "Seeded demo dataset: organizations, venues, categories, event "
-            "sources, ingestion runs, observations, and events (lifecycle + "
-            "provenance)."
+            "Seeded demo dataset: 20 organizations, 120 venues, 8 categories, "
+            "20 event sources, 400 canonical events (lifecycle + classification "
+            "matrix) with generated hero images, plus ingestion runs, "
+            "observations, and a promoted event for provenance."
         ))
         self.stdout.write(self.style.WARNING(
             f"Demo operator: username={DEMO_USERNAME!r} password={DEMO_PASSWORD!r} "
@@ -114,91 +257,111 @@ class Command(BaseCommand):
             ],
         ))
 
-    # --- Domain data --------------------------------------------------------
+    # --- JSON-driven domain data -------------------------------------------
 
     def _organizations(self, owner):
-        specs = [
-            ("Berlin Python Meetup", "Monthly Python talks and hacks in Berlin.",
-             "https://www.berlin-python.org", True),
-            ("Frontend Berlin", "Frontend engineering meetup community.",
-             "https://frontend.berlin", True),
-            ("Data Science Berlin", "Data, ML and analytics talks.",
-             "https://datascience.berlin", True),
-            ("Legacy Events Org", "A dormant org kept for history.",
-             "https://legacy.example", False),  # inactive → hidden from public API
-        ]
+        """20 orgs from JSON, keyed by slug (unique natural key)."""
         orgs = {}
-        for name, desc, website, is_active in specs:
-            defaults = {"description": desc, "website": website, "is_active": is_active}
-            if name == "Berlin Python Meetup":
+        for row in _load("organizations"):
+            defaults = {
+                "name": row["name"],
+                "description": row["description"],
+                "website": row["website"],
+                "is_active": row["is_active"],
+            }
+            if row.get("is_owner"):
                 defaults["owner"] = owner
-            org, _ = Organization.objects.get_or_create(name=name, defaults=defaults)
-            orgs[name] = org
+            org, _ = Organization.objects.get_or_create(slug=row["slug"], defaults=defaults)
+            orgs[row["slug"]] = org
         return orgs
 
     def _venues(self):
-        specs = [
-            ("Factory Berlin", "Rheinsberger Str. 76", "Berlin", 52.531, 13.386, 120),
-            ("c-base", "Rungestraße 20", "Berlin", 52.513, 13.415, 80),
-            ("Metalworx", "Harzer Str. 98", "Berlin", 52.483, 13.446, 60),
-            ("Microsoft Atrium", "Unter den Linden 17", "Berlin", 52.517, 13.393, 200),
-        ]
+        """120 venues from JSON, keyed by (name, city) natural key."""
         venues = {}
-        for name, address, city, lat, lon, cap in specs:
+        for row in _load("venues"):
             venue, _ = Venue.objects.get_or_create(
-                name=name,
+                name=row["name"], city=row["city"],
                 defaults={
-                    "address": address,
-                    "city": city,
-                    "location": _point(lon, lat),
-                    "capacity": cap,
+                    "address": row["address"],
+                    "location": _point(row["longitude"], row["latitude"]),
+                    "capacity": row["capacity"],
                 },
             )
-            venues[name] = venue
+            venues[(row["name"], row["city"])] = venue
         return venues
 
     def _categories(self):
-        names = ["Tech", "Python", "Frontend", "Data", "Music", "Social"]
+        """8 categories from JSON, keyed by name (unique natural key)."""
         cats = {}
-        for name in names:
-            cat, _ = Category.objects.get_or_create(name=name)
-            cats[name] = cat
+        for row in _load("categories"):
+            cat, _ = Category.objects.get_or_create(name=row["name"])
+            cats[row["name"]] = cat
         return cats
 
     def _event_sources(self, orgs):
-        """Sources in varied states: approved+active, approved+disabled, unapproved."""
-        specs = [
-            # (org_name, url, platform, is_approved, is_active, fetch_interval)
-            ("Berlin Python Meetup", "https://www.berlin-python.org/events.ics",
-             "homepage", True, True, 60),
-            ("Berlin Python Meetup", "https://www.meetup.com/berlin-python/events/",
-             "meetup", True, True, 1440),
-            ("Frontend Berlin", "https://www.meetup.com/frontend-berlin/",
-             "meetup", True, True, 60),
-            ("Data Science Berlin", "https://www.meetup.com/data-science-berlin/",
-             "meetup", True, False, 60),  # approved but paused (disabled)
-            ("Legacy Events Org", "https://legacy.example/feed.xml",
-             "homepage", False, True, 60),  # not approved → never due
-        ]
+        """20 event sources from JSON, keyed by (org_slug, url) natural key."""
         sources = {}
-        for org_name, url, platform, approved, active, interval in specs:
+        for row in _load("sources"):
             src, _ = EventSource.objects.get_or_create(
-                organization=orgs[org_name], url=url,
+                organization=orgs[row["organization_slug"]], url=row["url"],
                 defaults={
-                    "platform": platform,
-                    "is_approved": approved,
-                    "is_active": active,
-                    "fetch_interval_minutes": interval,
+                    "platform": row["platform"],
+                    "is_approved": row["is_approved"],
+                    "is_active": row["is_active"],
+                    "fetch_interval_minutes": row["fetch_interval_minutes"],
                 },
             )
-            sources[(org_name, url)] = src
+            sources[(row["organization_slug"], row["url"])] = src
         return sources
 
+    def _canonical_events(self, orgs, venues, categories, operator, generate_hero=True):
+        """400 events from JSON — full lifecycle + classification matrix."""
+        for row in _load("events"):
+            venue = None
+            if row["venue_name"]:
+                venue = venues[(row["venue_name"], row["venue_city"])]
+
+            defaults = {
+                "description": row["description"],
+                "organization": orgs[row["organization_slug"]],
+                "ends_at": (
+                    datetime.fromisoformat(row["ends_at"].replace("Z", "+00:00"))
+                    if row["ends_at"] else None
+                ),
+                "event_type": row["event_type"],
+                "attendance_mode": row["attendance_mode"],
+                "status": row["status"],
+                "capacity": row["capacity"],
+                "created_by": operator,
+            }
+            if venue is not None and venue.location is not None:
+                defaults["location"] = venue.location
+                defaults["venue"] = venue
+            if row["published_at"]:
+                defaults["published_at"] = datetime.fromisoformat(
+                    row["published_at"].replace("Z", "+00:00")
+                )
+            if row["cancelled_at"]:
+                defaults["cancelled_at"] = datetime.fromisoformat(
+                    row["cancelled_at"].replace("Z", "+00:00")
+                )
+
+            event, created = Event.objects.get_or_create(
+                title=row["title"],
+                starts_at=datetime.fromisoformat(row["starts_at"].replace("Z", "+00:00")),
+                defaults=defaults,
+            )
+            if created:
+                event.categories.set([categories[n] for n in row["category_names"]])
+                if generate_hero:
+                    category = row["category_names"][0] if row["category_names"] else None
+                    _attach_hero(event, row["title"], category=category)
+
+    # --- Inline provenance demonstration -----------------------------------
+
     def _ingestion_runs(self, sources, operator):
-        """A succeeded run (with a promoted obs), a failed run, and a running run."""
-        python_home = sources[("Berlin Python Meetup", "https://www.berlin-python.org/events.ics")]
-        python_meetup = sources[("Berlin Python Meetup", "https://www.meetup.com/berlin-python/events/")]
-        frontend = sources[("Frontend Berlin", "https://www.meetup.com/frontend-berlin/")]
+        """A succeeded (with a promoted obs), failed, and running run."""
+        python_home = sources[("berlin-python-meetup", PROMOTED_SOURCE_URL)]
 
         succeeded, _ = IngestionRun.objects.get_or_create(
             source=python_home, started_at=_dt(days=-30),
@@ -211,7 +374,7 @@ class Command(BaseCommand):
             },
         )
         failed, _ = IngestionRun.objects.get_or_create(
-            source=python_meetup, started_at=_dt(days=-15),
+            source=python_home, started_at=_dt(days=-15),
             defaults={
                 "status": IngestionRun.Status.FAILED,
                 "finished_at": _dt(days=-15, minutes=5),
@@ -221,138 +384,66 @@ class Command(BaseCommand):
             },
         )
         running, _ = IngestionRun.objects.get_or_create(
-            source=frontend, started_at=_dt(minutes=-12),
+            source=python_home, started_at=_dt(minutes=-12),
             defaults={"status": IngestionRun.Status.RUNNING, "reported_by": operator},
         )
         return {"succeeded": succeeded, "failed": failed, "running": running}
 
-    def _event_observations(self, sources, runs, operator):
+    def _event_observations(self, sources, runs, operator, venues):
         """Pending / accepted / rejected / promoted observations for review."""
-        python_home = sources[("Berlin Python Meetup", "https://www.berlin-python.org/events.ics")]
-        frontend = sources[("Frontend Berlin", "https://www.meetup.com/frontend-berlin/")]
-        python_meetup = sources[("Berlin Python Meetup", "https://www.meetup.com/berlin-python/events/")]
+        python_home = sources[("berlin-python-meetup", PROMOTED_SOURCE_URL)]
+        hub = venues[("Berlin Hub", "Berlin")]
 
         specs = [
-            # (source, run, title, starts_at, status, venue_name, lat, lon)
-            # PROMOTED: the observation that became a canonical event (see _promoted_event).
-            (python_home, runs["succeeded"], "Intro to FastAPI", _dt(days=14),
-             EventObservation.Status.PROMOTED, "Factory Berlin", 52.531, 13.386),
+            # (title, starts_at, status, run, venue_or_None)
+            # PROMOTED: the observation that became a canonical event.
+            ("Intro to FastAPI", _dt(days=14), EventObservation.Status.PROMOTED,
+             runs["succeeded"], hub),
             # ACCEPTED: kept for later promotion.
-            (python_home, runs["succeeded"], "Async Python patterns", _dt(days=21),
-             EventObservation.Status.ACCEPTED, "c-base", 52.513, 13.415),
+            ("Async Python patterns", _dt(days=21), EventObservation.Status.ACCEPTED,
+             runs["succeeded"], hub),
             # REJECTED: a duplicate / junk entry.
-            (python_home, runs["succeeded"], "Spammy listing (test)", _dt(days=18),
-             EventObservation.Status.REJECTED, "", None, None),
-            # PENDING: fresh, awaiting review (frontend run still running).
-            (frontend, runs["running"], "React Server Components workshop", _dt(days=10),
-             EventObservation.Status.PENDING, "Microsoft Atrium", 52.517, 13.393),
-            (frontend, runs["running"], "TypeScript tips & tricks", _dt(days=28),
-             EventObservation.Status.PENDING, "Metalworx", 52.483, 13.446),
+            ("Spammy listing (test)", _dt(days=18), EventObservation.Status.REJECTED,
+             runs["succeeded"], None),
+            # PENDING: fresh, awaiting review (run still running).
+            ("React Server Components workshop", _dt(days=10), EventObservation.Status.PENDING,
+             runs["running"], hub),
+            ("TypeScript tips & tricks", _dt(days=28), EventObservation.Status.PENDING,
+             runs["running"], hub),
             # PENDING: orphan (no run) — a direct-submit shape.
-            (python_meetup, None, "PyPy in production", _dt(days=35),
-             EventObservation.Status.PENDING, "", 52.520, 13.405),
+            ("PyPy in production", _dt(days=35), EventObservation.Status.PENDING,
+             None, hub),
         ]
-        for source, run, title, starts_at, status, venue_name, lat, lon in specs:
+        for title, starts_at, status, run, venue in specs:
             defaults = {
                 "run": run,
                 "status": status,
                 "description": f"Extracted observation for {title}.",
-                "url": f"https://example.com/{_slugify_title(title)}",
-                "platform": source.platform,
+                "url": f"https://example.com/{slugify(title)}",
+                "platform": python_home.platform,
                 "attendance_mode": Event.AttendanceMode.PHYSICAL,
                 "event_type": Event.EventType.MEETUP,
-                "venue_name": venue_name,
-                "venue_city": "Berlin" if venue_name else "",
+                "venue_name": venue.name if venue else "",
+                "venue_city": venue.city if venue else "",
             }
-            if lat is not None and lon is not None:
-                defaults["location"] = _point(lon, lat)
+            if venue is not None and venue.location is not None:
+                defaults["location"] = venue.location
             if status != EventObservation.Status.PENDING:
                 defaults["reviewed_by"] = operator
                 defaults["reviewed_at"] = _dt(days=-29)
             EventObservation.objects.get_or_create(
-                source=source, title=title, starts_at=starts_at, defaults=defaults,
+                source=python_home, title=title, starts_at=starts_at, defaults=defaults,
             )
 
-    def _canonical_events(self, orgs, venues, categories, operator):
-        """Hand-curated events with lifecycle + classification variety."""
-        factory = venues["Factory Berlin"]
-        cbase = venues["c-base"]
-        metalworx = venues["Metalworx"]
-        atrium = venues["Microsoft Atrium"]
-
-        specs = [
-            # (title, starts_at, venue, org, type, attendance, status, cats, cap)
-            ("Berlin Python Meetup #42", _dt(days=7), factory,
-             orgs["Berlin Python Meetup"], Event.EventType.MEETUP,
-             Event.AttendanceMode.PHYSICAL, Event.Status.PUBLISHED,
-             ["Tech", "Python"], 100),
-            ("React Berlin: Server Components Deep Dive", _dt(days=12), atrium,
-             orgs["Frontend Berlin"], Event.EventType.WORKSHOP,
-             Event.AttendanceMode.PHYSICAL, Event.Status.PUBLISHED,
-             ["Tech", "Frontend"], 150),
-            ("Data Science Stammtisch", _dt(days=9), cbase,
-             orgs["Data Science Berlin"], Event.EventType.SOCIAL,
-             Event.AttendanceMode.PHYSICAL, Event.Status.PUBLISHED,
-             ["Data", "Social"], 60),
-            ("Indie Acoustic Sessions", _dt(days=20), metalworx,
-             orgs["Berlin Python Meetup"], Event.EventType.SOCIAL,
-             Event.AttendanceMode.PHYSICAL, Event.Status.PUBLISHED,
-             ["Music", "Social"], 50),
-            ("Remote DevOps Office Hours", _dt(days=5), None,
-             orgs["Frontend Berlin"], Event.EventType.MEETUP,
-             Event.AttendanceMode.ONLINE, Event.Status.PUBLISHED,
-             ["Tech"], 200),  # online → excluded from proximity
-            ("Hybrid Kubernetes Meetup", _dt(days=16), factory,
-             orgs["Berlin Python Meetup"], Event.EventType.MEETUP,
-             Event.AttendanceMode.HYBRID, Event.Status.PUBLISHED,
-             ["Tech"], 120),  # hybrid → included in proximity
-            ("Unlisted Tech Talk (draft)", _dt(days=25), atrium,
-             orgs["Frontend Berlin"], Event.EventType.WORKSHOP,
-             Event.AttendanceMode.PHYSICAL, Event.Status.DRAFT,
-             ["Tech"], 80),  # draft → not public
-            ("Cancelled: GraphQL Berlin", _dt(days=3), cbase,
-             orgs["Data Science Berlin"], Event.EventType.MEETUP,
-             Event.AttendanceMode.PHYSICAL, Event.Status.CANCELLED,
-             ["Tech", "Frontend"], 60),  # cancelled → not public
-            ("Archived: 2025 Kickoff", _dt(days=-120), metalworx,
-             orgs["Berlin Python Meetup"], Event.EventType.SOCIAL,
-             Event.AttendanceMode.PHYSICAL, Event.Status.ARCHIVED,
-             ["Social"], 40),  # archived → not public
-        ]
-        for title, starts_at, venue, org, etype, attend, status, cat_names, cap in specs:
-            defaults = {
-                "venue": venue,
-                "organization": org,
-                "event_type": etype,
-                "attendance_mode": attend,
-                "status": status,
-                "capacity": cap,
-                "created_by": operator,
-            }
-            if venue is not None and venue.location is not None:
-                defaults["location"] = venue.location
-            if status == Event.Status.PUBLISHED:
-                defaults["published_at"] = _dt(days=-10)
-            elif status == Event.Status.CANCELLED:
-                defaults["cancelled_at"] = _dt(days=-1)
-            event, created = Event.objects.get_or_create(
-                title=title, starts_at=starts_at, defaults=defaults,
-            )
-            if created:
-                event.categories.set([categories[n] for n in cat_names])
-
-    def _promoted_event(self, sources, operator):
+    def _promoted_event(self, sources, operator, venues, generate_hero=True):
         """A canonical event promoted from an observation — published, with provenance."""
-        source = sources[("Berlin Python Meetup", "https://www.berlin-python.org/events.ics")]
+        source = sources[("berlin-python-meetup", PROMOTED_SOURCE_URL)]
         obs = EventObservation.objects.get(
             source=source, title="Intro to FastAPI", starts_at=_dt(days=14),
         )
-        venue, _ = Venue.objects.get_or_create(
-            name=obs.venue_name,
-            defaults={"city": obs.venue_city or "Berlin", "location": obs.location},
-        )
+        venue = venues[("Berlin Hub", "Berlin")]
         starts_at = obs.starts_at
-        Event.objects.get_or_create(
+        event, created = Event.objects.get_or_create(
             title="Intro to FastAPI", starts_at=starts_at,
             defaults={
                 "description": obs.description,
@@ -365,9 +456,11 @@ class Command(BaseCommand):
                 "published_at": _dt(days=-9),
                 "original_url": obs.url,
                 "original_platform": obs.platform,
-                "location": obs.location,
+                "location": venue.location,
                 "source": source,
                 "promoted_from": obs,
                 "created_by": operator,
             },
         )
+        if created and generate_hero:
+            _attach_hero(event, "Intro to FastAPI", category="Python")

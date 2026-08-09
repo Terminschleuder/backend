@@ -1,0 +1,962 @@
+[
+  {
+    "name": "Berlin Hub",
+    "address": "12 Example Street",
+    "city": "Berlin",
+    "latitude": 52.53641,
+    "longitude": 13.39136,
+    "capacity": 60
+  },
+  {
+    "name": "Berlin Lab",
+    "address": "24 Example Street",
+    "city": "Berlin",
+    "latitude": 52.52461,
+    "longitude": 13.41764,
+    "capacity": 90
+  },
+  {
+    "name": "Berlin Loft",
+    "address": "36 Example Street",
+    "city": "Berlin",
+    "latitude": 52.51672,
+    "longitude": 13.41434,
+    "capacity": 120
+  },
+  {
+    "name": "Berlin Forge",
+    "address": "48 Example Street",
+    "city": "Berlin",
+    "latitude": 52.53568,
+    "longitude": 13.42409,
+    "capacity": 150
+  },
+  {
+    "name": "Berlin Works",
+    "address": "60 Example Street",
+    "city": "Berlin",
+    "latitude": 52.51772,
+    "longitude": 13.3944,
+    "capacity": 180
+  },
+  {
+    "name": "Berlin Studio",
+    "address": "72 Example Street",
+    "city": "Berlin",
+    "latitude": 52.51801,
+    "longitude": 13.40061,
+    "capacity": 210
+  },
+  {
+    "name": "Berlin Atrium",
+    "address": "84 Example Street",
+    "city": "Berlin",
+    "latitude": 52.52184,
+    "longitude": 13.40578,
+    "capacity": 240
+  },
+  {
+    "name": "Berlin Commons",
+    "address": "96 Example Street",
+    "city": "Berlin",
+    "latitude": 52.51221,
+    "longitude": 13.41498,
+    "capacity": 270
+  },
+  {
+    "name": "Hamburg Hub",
+    "address": "12 Example Street",
+    "city": "Hamburg",
+    "latitude": 53.54968,
+    "longitude": 10.00313,
+    "capacity": 60
+  },
+  {
+    "name": "Hamburg Lab",
+    "address": "24 Example Street",
+    "city": "Hamburg",
+    "latitude": 53.53367,
+    "longitude": 10.01126,
+    "capacity": 90
+  },
+  {
+    "name": "Hamburg Loft",
+    "address": "36 Example Street",
+    "city": "Hamburg",
+    "latitude": 53.54767,
+    "longitude": 10.00505,
+    "capacity": 120
+  },
+  {
+    "name": "Hamburg Forge",
+    "address": "48 Example Street",
+    "city": "Hamburg",
+    "latitude": 53.55523,
+    "longitude": 10.00448,
+    "capacity": 150
+  },
+  {
+    "name": "Hamburg Works",
+    "address": "60 Example Street",
+    "city": "Hamburg",
+    "latitude": 53.53375,
+    "longitude": 10.00111,
+    "capacity": 180
+  },
+  {
+    "name": "Hamburg Studio",
+    "address": "72 Example Street",
+    "city": "Hamburg",
+    "latitude": 53.53086,
+    "longitude": 9.99479,
+    "capacity": 210
+  },
+  {
+    "name": "Hamburg Atrium",
+    "address": "84 Example Street",
+    "city": "Hamburg",
+    "latitude": 53.55268,
+    "longitude": 9.99326,
+    "capacity": 240
+  },
+  {
+    "name": "Hamburg Commons",
+    "address": "96 Example Street",
+    "city": "Hamburg",
+    "latitude": 53.54865,
+    "longitude": 10.00872,
+    "capacity": 270
+  },
+  {
+    "name": "Munich Hub",
+    "address": "12 Example Street",
+    "city": "Munich",
+    "latitude": 48.143,
+    "longitude": 11.58722,
+    "capacity": 60
+  },
+  {
+    "name": "Munich Lab",
+    "address": "24 Example Street",
+    "city": "Munich",
+    "latitude": 48.14451,
+    "longitude": 11.56388,
+    "capacity": 90
+  },
+  {
+    "name": "Munich Loft",
+    "address": "36 Example Street",
+    "city": "Munich",
+    "latitude": 48.12181,
+    "longitude": 11.59321,
+    "capacity": 120
+  },
+  {
+    "name": "Munich Forge",
+    "address": "48 Example Street",
+    "city": "Munich",
+    "latitude": 48.15354,
+    "longitude": 11.55973,
+    "capacity": 150
+  },
+  {
+    "name": "Munich Works",
+    "address": "60 Example Street",
+    "city": "Munich",
+    "latitude": 48.13562,
+    "longitude": 11.59346,
+    "capacity": 180
+  },
+  {
+    "name": "Munich Studio",
+    "address": "72 Example Street",
+    "city": "Munich",
+    "latitude": 48.11828,
+    "longitude": 11.57209,
+    "capacity": 210
+  },
+  {
+    "name": "Munich Atrium",
+    "address": "84 Example Street",
+    "city": "Munich",
+    "latitude": 48.12805,
+    "longitude": 11.59302,
+    "capacity": 240
+  },
+  {
+    "name": "Munich Commons",
+    "address": "96 Example Street",
+    "city": "Munich",
+    "latitude": 48.15666,
+    "longitude": 11.56568,
+    "capacity": 270
+  },
+  {
+    "name": "Dresden Hub",
+    "address": "12 Example Street",
+    "city": "Dresden",
+    "latitude": 51.06452,
+    "longitude": 13.7519,
+    "capacity": 60
+  },
+  {
+    "name": "Dresden Lab",
+    "address": "24 Example Street",
+    "city": "Dresden",
+    "latitude": 51.05538,
+    "longitude": 13.75339,
+    "capacity": 90
+  },
+  {
+    "name": "Dresden Loft",
+    "address": "36 Example Street",
+    "city": "Dresden",
+    "latitude": 51.03998,
+    "longitude": 13.74409,
+    "capacity": 120
+  },
+  {
+    "name": "Dresden Forge",
+    "address": "48 Example Street",
+    "city": "Dresden",
+    "latitude": 51.04242,
+    "longitude": 13.74416,
+    "capacity": 150
+  },
+  {
+    "name": "Dresden Works",
+    "address": "60 Example Street",
+    "city": "Dresden",
+    "latitude": 51.04913,
+    "longitude": 13.73011,
+    "capacity": 180
+  },
+  {
+    "name": "Dresden Studio",
+    "address": "72 Example Street",
+    "city": "Dresden",
+    "latitude": 51.0704,
+    "longitude": 13.73587,
+    "capacity": 210
+  },
+  {
+    "name": "Dresden Atrium",
+    "address": "84 Example Street",
+    "city": "Dresden",
+    "latitude": 51.04093,
+    "longitude": 13.75365,
+    "capacity": 240
+  },
+  {
+    "name": "Dresden Commons",
+    "address": "96 Example Street",
+    "city": "Dresden",
+    "latitude": 51.03415,
+    "longitude": 13.73025,
+    "capacity": 270
+  },
+  {
+    "name": "Vienna Hub",
+    "address": "12 Example Street",
+    "city": "Vienna",
+    "latitude": 48.21413,
+    "longitude": 16.37915,
+    "capacity": 60
+  },
+  {
+    "name": "Vienna Lab",
+    "address": "24 Example Street",
+    "city": "Vienna",
+    "latitude": 48.22105,
+    "longitude": 16.37906,
+    "capacity": 90
+  },
+  {
+    "name": "Vienna Loft",
+    "address": "36 Example Street",
+    "city": "Vienna",
+    "latitude": 48.20932,
+    "longitude": 16.38357,
+    "capacity": 120
+  },
+  {
+    "name": "Vienna Forge",
+    "address": "48 Example Street",
+    "city": "Vienna",
+    "latitude": 48.20151,
+    "longitude": 16.3783,
+    "capacity": 150
+  },
+  {
+    "name": "Vienna Works",
+    "address": "60 Example Street",
+    "city": "Vienna",
+    "latitude": 48.20005,
+    "longitude": 16.37656,
+    "capacity": 180
+  },
+  {
+    "name": "Vienna Studio",
+    "address": "72 Example Street",
+    "city": "Vienna",
+    "latitude": 48.21195,
+    "longitude": 16.3584,
+    "capacity": 210
+  },
+  {
+    "name": "Vienna Atrium",
+    "address": "84 Example Street",
+    "city": "Vienna",
+    "latitude": 48.20382,
+    "longitude": 16.38503,
+    "capacity": 240
+  },
+  {
+    "name": "Vienna Commons",
+    "address": "96 Example Street",
+    "city": "Vienna",
+    "latitude": 48.2137,
+    "longitude": 16.37104,
+    "capacity": 270
+  },
+  {
+    "name": "Prague Hub",
+    "address": "12 Example Street",
+    "city": "Prague",
+    "latitude": 50.09047,
+    "longitude": 14.42716,
+    "capacity": 60
+  },
+  {
+    "name": "Prague Lab",
+    "address": "24 Example Street",
+    "city": "Prague",
+    "latitude": 50.09834,
+    "longitude": 14.4335,
+    "capacity": 90
+  },
+  {
+    "name": "Prague Loft",
+    "address": "36 Example Street",
+    "city": "Prague",
+    "latitude": 50.08345,
+    "longitude": 14.42323,
+    "capacity": 120
+  },
+  {
+    "name": "Prague Forge",
+    "address": "48 Example Street",
+    "city": "Prague",
+    "latitude": 50.10276,
+    "longitude": 14.40302,
+    "capacity": 150
+  },
+  {
+    "name": "Prague Works",
+    "address": "60 Example Street",
+    "city": "Prague",
+    "latitude": 50.09141,
+    "longitude": 14.42975,
+    "capacity": 180
+  },
+  {
+    "name": "Prague Studio",
+    "address": "72 Example Street",
+    "city": "Prague",
+    "latitude": 50.08153,
+    "longitude": 14.40524,
+    "capacity": 210
+  },
+  {
+    "name": "Prague Atrium",
+    "address": "84 Example Street",
+    "city": "Prague",
+    "latitude": 50.07961,
+    "longitude": 14.42161,
+    "capacity": 240
+  },
+  {
+    "name": "Prague Commons",
+    "address": "96 Example Street",
+    "city": "Prague",
+    "latitude": 50.0719,
+    "longitude": 14.42417,
+    "capacity": 270
+  },
+  {
+    "name": "Amsterdam Hub",
+    "address": "12 Example Street",
+    "city": "Amsterdam",
+    "latitude": 52.3693,
+    "longitude": 4.88043,
+    "capacity": 60
+  },
+  {
+    "name": "Amsterdam Lab",
+    "address": "24 Example Street",
+    "city": "Amsterdam",
+    "latitude": 52.39003,
+    "longitude": 4.87652,
+    "capacity": 90
+  },
+  {
+    "name": "Amsterdam Loft",
+    "address": "36 Example Street",
+    "city": "Amsterdam",
+    "latitude": 52.3724,
+    "longitude": 4.88909,
+    "capacity": 120
+  },
+  {
+    "name": "Amsterdam Forge",
+    "address": "48 Example Street",
+    "city": "Amsterdam",
+    "latitude": 52.38117,
+    "longitude": 4.87061,
+    "capacity": 150
+  },
+  {
+    "name": "Amsterdam Works",
+    "address": "60 Example Street",
+    "city": "Amsterdam",
+    "latitude": 52.3695,
+    "longitude": 4.87495,
+    "capacity": 180
+  },
+  {
+    "name": "Amsterdam Studio",
+    "address": "72 Example Street",
+    "city": "Amsterdam",
+    "latitude": 52.35593,
+    "longitude": 4.89352,
+    "capacity": 210
+  },
+  {
+    "name": "Amsterdam Atrium",
+    "address": "84 Example Street",
+    "city": "Amsterdam",
+    "latitude": 52.3685,
+    "longitude": 4.87519,
+    "capacity": 240
+  },
+  {
+    "name": "Amsterdam Commons",
+    "address": "96 Example Street",
+    "city": "Amsterdam",
+    "latitude": 52.38917,
+    "longitude": 4.87993,
+    "capacity": 270
+  },
+  {
+    "name": "Brussels Hub",
+    "address": "12 Example Street",
+    "city": "Brussels",
+    "latitude": 50.85034,
+    "longitude": 4.33883,
+    "capacity": 60
+  },
+  {
+    "name": "Brussels Lab",
+    "address": "24 Example Street",
+    "city": "Brussels",
+    "latitude": 50.84051,
+    "longitude": 4.33523,
+    "capacity": 90
+  },
+  {
+    "name": "Brussels Loft",
+    "address": "36 Example Street",
+    "city": "Brussels",
+    "latitude": 50.85883,
+    "longitude": 4.36461,
+    "capacity": 120
+  },
+  {
+    "name": "Brussels Forge",
+    "address": "48 Example Street",
+    "city": "Brussels",
+    "latitude": 50.86124,
+    "longitude": 4.3325,
+    "capacity": 150
+  },
+  {
+    "name": "Brussels Works",
+    "address": "60 Example Street",
+    "city": "Brussels",
+    "latitude": 50.83932,
+    "longitude": 4.35726,
+    "capacity": 180
+  },
+  {
+    "name": "Brussels Studio",
+    "address": "72 Example Street",
+    "city": "Brussels",
+    "latitude": 50.83886,
+    "longitude": 4.35125,
+    "capacity": 210
+  },
+  {
+    "name": "Brussels Atrium",
+    "address": "84 Example Street",
+    "city": "Brussels",
+    "latitude": 50.84702,
+    "longitude": 4.34423,
+    "capacity": 240
+  },
+  {
+    "name": "Brussels Commons",
+    "address": "96 Example Street",
+    "city": "Brussels",
+    "latitude": 50.87026,
+    "longitude": 4.34618,
+    "capacity": 270
+  },
+  {
+    "name": "Paris Hub",
+    "address": "12 Example Street",
+    "city": "Paris",
+    "latitude": 48.85886,
+    "longitude": 2.36813,
+    "capacity": 60
+  },
+  {
+    "name": "Paris Lab",
+    "address": "24 Example Street",
+    "city": "Paris",
+    "latitude": 48.85739,
+    "longitude": 2.34179,
+    "capacity": 90
+  },
+  {
+    "name": "Paris Loft",
+    "address": "36 Example Street",
+    "city": "Paris",
+    "latitude": 48.83473,
+    "longitude": 2.33231,
+    "capacity": 120
+  },
+  {
+    "name": "Paris Forge",
+    "address": "48 Example Street",
+    "city": "Paris",
+    "latitude": 48.85883,
+    "longitude": 2.36526,
+    "capacity": 150
+  },
+  {
+    "name": "Paris Works",
+    "address": "60 Example Street",
+    "city": "Paris",
+    "latitude": 48.85218,
+    "longitude": 2.34209,
+    "capacity": 180
+  },
+  {
+    "name": "Paris Studio",
+    "address": "72 Example Street",
+    "city": "Paris",
+    "latitude": 48.86032,
+    "longitude": 2.34123,
+    "capacity": 210
+  },
+  {
+    "name": "Paris Atrium",
+    "address": "84 Example Street",
+    "city": "Paris",
+    "latitude": 48.87112,
+    "longitude": 2.3521,
+    "capacity": 240
+  },
+  {
+    "name": "Paris Commons",
+    "address": "96 Example Street",
+    "city": "Paris",
+    "latitude": 48.84037,
+    "longitude": 2.33211,
+    "capacity": 270
+  },
+  {
+    "name": "Copenhagen Hub",
+    "address": "12 Example Street",
+    "city": "Copenhagen",
+    "latitude": 55.69516,
+    "longitude": 12.57965,
+    "capacity": 60
+  },
+  {
+    "name": "Copenhagen Lab",
+    "address": "24 Example Street",
+    "city": "Copenhagen",
+    "latitude": 55.65895,
+    "longitude": 12.56649,
+    "capacity": 90
+  },
+  {
+    "name": "Copenhagen Loft",
+    "address": "36 Example Street",
+    "city": "Copenhagen",
+    "latitude": 55.66916,
+    "longitude": 12.56886,
+    "capacity": 120
+  },
+  {
+    "name": "Copenhagen Forge",
+    "address": "48 Example Street",
+    "city": "Copenhagen",
+    "latitude": 55.66288,
+    "longitude": 12.54752,
+    "capacity": 150
+  },
+  {
+    "name": "Copenhagen Works",
+    "address": "60 Example Street",
+    "city": "Copenhagen",
+    "latitude": 55.69068,
+    "longitude": 12.58264,
+    "capacity": 180
+  },
+  {
+    "name": "Copenhagen Studio",
+    "address": "72 Example Street",
+    "city": "Copenhagen",
+    "latitude": 55.66192,
+    "longitude": 12.56271,
+    "capacity": 210
+  },
+  {
+    "name": "Copenhagen Atrium",
+    "address": "84 Example Street",
+    "city": "Copenhagen",
+    "latitude": 55.66458,
+    "longitude": 12.5732,
+    "capacity": 240
+  },
+  {
+    "name": "Copenhagen Commons",
+    "address": "96 Example Street",
+    "city": "Copenhagen",
+    "latitude": 55.66659,
+    "longitude": 12.56089,
+    "capacity": 270
+  },
+  {
+    "name": "Stockholm Hub",
+    "address": "12 Example Street",
+    "city": "Stockholm",
+    "latitude": 59.33317,
+    "longitude": 18.075,
+    "capacity": 60
+  },
+  {
+    "name": "Stockholm Lab",
+    "address": "24 Example Street",
+    "city": "Stockholm",
+    "latitude": 59.32034,
+    "longitude": 18.08417,
+    "capacity": 90
+  },
+  {
+    "name": "Stockholm Loft",
+    "address": "36 Example Street",
+    "city": "Stockholm",
+    "latitude": 59.31571,
+    "longitude": 18.08213,
+    "capacity": 120
+  },
+  {
+    "name": "Stockholm Forge",
+    "address": "48 Example Street",
+    "city": "Stockholm",
+    "latitude": 59.33082,
+    "longitude": 18.05212,
+    "capacity": 150
+  },
+  {
+    "name": "Stockholm Works",
+    "address": "60 Example Street",
+    "city": "Stockholm",
+    "latitude": 59.32567,
+    "longitude": 18.08014,
+    "capacity": 180
+  },
+  {
+    "name": "Stockholm Studio",
+    "address": "72 Example Street",
+    "city": "Stockholm",
+    "latitude": 59.32298,
+    "longitude": 18.06063,
+    "capacity": 210
+  },
+  {
+    "name": "Stockholm Atrium",
+    "address": "84 Example Street",
+    "city": "Stockholm",
+    "latitude": 59.33367,
+    "longitude": 18.08027,
+    "capacity": 240
+  },
+  {
+    "name": "Stockholm Commons",
+    "address": "96 Example Street",
+    "city": "Stockholm",
+    "latitude": 59.32292,
+    "longitude": 18.05167,
+    "capacity": 270
+  },
+  {
+    "name": "Lisbon Hub",
+    "address": "12 Example Street",
+    "city": "Lisbon",
+    "latitude": 38.73604,
+    "longitude": -9.14073,
+    "capacity": 60
+  },
+  {
+    "name": "Lisbon Lab",
+    "address": "24 Example Street",
+    "city": "Lisbon",
+    "latitude": 38.70787,
+    "longitude": -9.14016,
+    "capacity": 90
+  },
+  {
+    "name": "Lisbon Loft",
+    "address": "36 Example Street",
+    "city": "Lisbon",
+    "latitude": 38.73586,
+    "longitude": -9.13764,
+    "capacity": 120
+  },
+  {
+    "name": "Lisbon Forge",
+    "address": "48 Example Street",
+    "city": "Lisbon",
+    "latitude": 38.73037,
+    "longitude": -9.15152,
+    "capacity": 150
+  },
+  {
+    "name": "Lisbon Works",
+    "address": "60 Example Street",
+    "city": "Lisbon",
+    "latitude": 38.73757,
+    "longitude": -9.13495,
+    "capacity": 180
+  },
+  {
+    "name": "Lisbon Studio",
+    "address": "72 Example Street",
+    "city": "Lisbon",
+    "latitude": 38.71206,
+    "longitude": -9.15415,
+    "capacity": 210
+  },
+  {
+    "name": "Lisbon Atrium",
+    "address": "84 Example Street",
+    "city": "Lisbon",
+    "latitude": 38.72532,
+    "longitude": -9.13831,
+    "capacity": 240
+  },
+  {
+    "name": "Lisbon Commons",
+    "address": "96 Example Street",
+    "city": "Lisbon",
+    "latitude": 38.71535,
+    "longitude": -9.13949,
+    "capacity": 270
+  },
+  {
+    "name": "Barcelona Hub",
+    "address": "12 Example Street",
+    "city": "Barcelona",
+    "latitude": 41.39895,
+    "longitude": 2.16915,
+    "capacity": 60
+  },
+  {
+    "name": "Barcelona Lab",
+    "address": "24 Example Street",
+    "city": "Barcelona",
+    "latitude": 41.38418,
+    "longitude": 2.1501,
+    "capacity": 90
+  },
+  {
+    "name": "Barcelona Loft",
+    "address": "36 Example Street",
+    "city": "Barcelona",
+    "latitude": 41.40467,
+    "longitude": 2.16841,
+    "capacity": 120
+  },
+  {
+    "name": "Barcelona Forge",
+    "address": "48 Example Street",
+    "city": "Barcelona",
+    "latitude": 41.38257,
+    "longitude": 2.17789,
+    "capacity": 150
+  },
+  {
+    "name": "Barcelona Works",
+    "address": "60 Example Street",
+    "city": "Barcelona",
+    "latitude": 41.39042,
+    "longitude": 2.16677,
+    "capacity": 180
+  },
+  {
+    "name": "Barcelona Studio",
+    "address": "72 Example Street",
+    "city": "Barcelona",
+    "latitude": 41.38972,
+    "longitude": 2.16755,
+    "capacity": 210
+  },
+  {
+    "name": "Barcelona Atrium",
+    "address": "84 Example Street",
+    "city": "Barcelona",
+    "latitude": 41.37557,
+    "longitude": 2.14593,
+    "capacity": 240
+  },
+  {
+    "name": "Barcelona Commons",
+    "address": "96 Example Street",
+    "city": "Barcelona",
+    "latitude": 41.38571,
+    "longitude": 2.14337,
+    "capacity": 270
+  },
+  {
+    "name": "Madrid Hub",
+    "address": "12 Example Street",
+    "city": "Madrid",
+    "latitude": 40.4164,
+    "longitude": -3.68735,
+    "capacity": 60
+  },
+  {
+    "name": "Madrid Lab",
+    "address": "24 Example Street",
+    "city": "Madrid",
+    "latitude": 40.41492,
+    "longitude": -3.69397,
+    "capacity": 90
+  },
+  {
+    "name": "Madrid Loft",
+    "address": "36 Example Street",
+    "city": "Madrid",
+    "latitude": 40.42476,
+    "longitude": -3.70575,
+    "capacity": 120
+  },
+  {
+    "name": "Madrid Forge",
+    "address": "48 Example Street",
+    "city": "Madrid",
+    "latitude": 40.41031,
+    "longitude": -3.71985,
+    "capacity": 150
+  },
+  {
+    "name": "Madrid Works",
+    "address": "60 Example Street",
+    "city": "Madrid",
+    "latitude": 40.4029,
+    "longitude": -3.72234,
+    "capacity": 180
+  },
+  {
+    "name": "Madrid Studio",
+    "address": "72 Example Street",
+    "city": "Madrid",
+    "latitude": 40.43596,
+    "longitude": -3.69761,
+    "capacity": 210
+  },
+  {
+    "name": "Madrid Atrium",
+    "address": "84 Example Street",
+    "city": "Madrid",
+    "latitude": 40.42528,
+    "longitude": -3.69387,
+    "capacity": 240
+  },
+  {
+    "name": "Madrid Commons",
+    "address": "96 Example Street",
+    "city": "Madrid",
+    "latitude": 40.40894,
+    "longitude": -3.71829,
+    "capacity": 270
+  },
+  {
+    "name": "Dublin Hub",
+    "address": "12 Example Street",
+    "city": "Dublin",
+    "latitude": 53.34184,
+    "longitude": -6.24951,
+    "capacity": 60
+  },
+  {
+    "name": "Dublin Lab",
+    "address": "24 Example Street",
+    "city": "Dublin",
+    "latitude": 53.32686,
+    "longitude": -6.23208,
+    "capacity": 90
+  },
+  {
+    "name": "Dublin Loft",
+    "address": "36 Example Street",
+    "city": "Dublin",
+    "latitude": 53.35137,
+    "longitude": -6.24442,
+    "capacity": 120
+  },
+  {
+    "name": "Dublin Forge",
+    "address": "48 Example Street",
+    "city": "Dublin",
+    "latitude": 53.33333,
+    "longitude": -6.24851,
+    "capacity": 150
+  },
+  {
+    "name": "Dublin Works",
+    "address": "60 Example Street",
+    "city": "Dublin",
+    "latitude": 53.31697,
+    "longitude": -6.23588,
+    "capacity": 180
+  },
+  {
+    "name": "Dublin Studio",
+    "address": "72 Example Street",
+    "city": "Dublin",
+    "latitude": 53.35223,
+    "longitude": -6.25524,
+    "capacity": 210
+  },
+  {
+    "name": "Dublin Atrium",
+    "address": "84 Example Street",
+    "city": "Dublin",
+    "latitude": 53.35186,
+    "longitude": -6.23137,
+    "capacity": 240
+  },
+  {
+    "name": "Dublin Commons",
+    "address": "96 Example Street",
+    "city": "Dublin",
+    "latitude": 53.31887,
+    "longitude": -6.23066,
+    "capacity": 270
+  }
+]

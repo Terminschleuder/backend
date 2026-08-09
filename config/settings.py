@@ -27,6 +27,13 @@ env = environ.Env(
         "https://*.terminschleuder.online",
     ]),
     DATABASE_URL=(str, "postgis://terminschleuder:terminschleuder@127.0.0.1:5432/terminschleuder"),
+    # CORS: the demo client (a browser SPA on another origin) reads the public API
+    # directly. Read-only GETs need only CORS, not CSRF. Default allows all origins
+    # for GET/HEAD/OPTIONS with no credentials — fine for the public read catalog.
+    # Set CORS_ALLOW_ALL_ORIGINS=False and list CORS_ALLOWED_ORIGINS for a locked-down
+    # production deployment.
+    CORS_ALLOW_ALL_ORIGINS=(bool, True),
+    CORS_ALLOWED_ORIGINS=(list, []),
 )
 environ.Env.read_env(BASE_DIR / ".env")
 
@@ -47,6 +54,15 @@ ALLOWED_HOSTS = env("ALLOWED_HOSTS")
 CSRF_TRUSTED_ORIGINS = env("CSRF_TRUSTED_ORIGINS")
 
 
+# CORS — read-only access for the demo SPA (see env schema above).
+CORS_ALLOW_ALL_ORIGINS = env("CORS_ALLOW_ALL_ORIGINS")
+CORS_ALLOWED_ORIGINS = env("CORS_ALLOWED_ORIGINS")
+# The public catalog is read-only for external clients; only safe methods are
+# CORS-enabled. Credentials stay off (no cookies/JWT for the anon demo reader).
+CORS_ALLOW_METHODS = ["GET", "HEAD", "OPTIONS"]
+CORS_ALLOW_CREDENTIALS = False
+
+
 # Application definition
 
 INSTALLED_APPS = [
@@ -59,8 +75,10 @@ INSTALLED_APPS = [
     'django.contrib.gis',
 
     # Third-party
+    'corsheaders',
     'rest_framework',
     'django_filters',
+    'drf_spectacular',
 
     # Local
     'admin.apps.AdminConfig',  # backoffice (custom AdminSite); label "backoffice"
@@ -70,6 +88,9 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    # CorsMiddleware must run before other middleware that generates responses so
+    # the CORS headers are added to every response (including error responses).
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -147,6 +168,12 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
+# Media — uploaded event hero images (and any future user files). The file lives
+# on a persistent Docker volume (see docker-compose.yml); only the path is in the
+# DB. Served by runserver under DEBUG, by the reverse proxy in production.
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
 
 # Auth redirects — the backoffice (custom AdminSite) is mounted at "/".
 LOGIN_URL = '/login/'
@@ -186,6 +213,36 @@ REST_FRAMEWORK = {
     ],
     'DEFAULT_PAGINATION_CLASS': 'config.pagination.StandardPagination',
     'PAGE_SIZE': 25,
+    # OpenAPI 3 schema generation (drf-spectacular) for the demo client + docs.
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+}
+
+
+# drf-spectacular — OpenAPI 3 schema served at /api/schema/ (+ Swagger UI / ReDoc).
+# External clients (the demo) codegen TypeScript types from this.
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'terminschleuder API',
+    'DESCRIPTION': (
+        'A Django + DRF backend for local events and meetups with PostGIS geospatial '
+        'search and ingestion/provenance. This schema describes the public, read-only '
+        'catalog surface a client (e.g. the demo SPA) consumes.'
+    ),
+    'VERSION': 'alpha-0.01',
+    'SERVE_INCLUDES': ['api/'],
+    'SCHEMA_PATH_PREFIX': '/api/',
+    # Group endpoints in Swagger/ReDoc by resource.
+    'PREPROCESSING_HOOKS': [],
+    'TAGS': [
+        {'name': 'Cities', 'description': 'City gazetteer catalog + ?near_city= resolution.'},
+        {'name': 'Events', 'description': 'Canonical events: list, filters, proximity, lifecycle.'},
+        {'name': 'Organizations', 'description': 'Public organization catalog.'},
+        {'name': 'Venues', 'description': 'Venue catalog.'},
+        {'name': 'Categories', 'description': 'Event category catalog.'},
+        {'name': 'Auth', 'description': 'Registration, JWT, session, API keys.'},
+        {'name': 'Ingestion', 'description': 'Extractor-facing ingestion surface.'},
+    ],
+    'COMPONENT_SPLIT_REQUEST': True,
+    'DISCLAIMER': {'description': 'alpha preview; APIs may change before 1.0.'},
 }
 
 

@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.contrib.gis.admin import GISModelAdmin
 from django.db.models import F
+from django.utils.html import format_html
 from django.utils import timezone
 
 from .models import (
@@ -196,7 +197,7 @@ class EventObservationAdmin(admin.ModelAdmin):
 
 class EventAdmin(GISModelAdmin):
     list_display = (
-        "title", "starts_at", "venue", "organization", "status",
+        "hero_image_thumbnail", "title", "starts_at", "venue", "organization", "status",
         "event_type", "attendance_mode", "capacity", "latitude", "longitude",
     )
     list_filter = (
@@ -210,11 +211,22 @@ class EventAdmin(GISModelAdmin):
     # `location` is edited via the PostGIS map widget (GISModelAdmin);
     # latitude/longitude are read-only views of the same point. Provenance and
     # lifecycle timestamps are operator-set via actions, not the change form.
+    # `hero_image` is editable here via the admin file widget.
     readonly_fields = (
         "latitude", "longitude",
         "published_at", "cancelled_at", "promoted_from", "source",
     )
     actions = ["publish", "cancel", "archive", "revert_to_draft"]
+
+    @admin.display(description="Hero")
+    def hero_image_thumbnail(self, obj):
+        if obj.hero_image:
+            return format_html(
+                '<img src="{}" width="80" height="32" '
+                'style="object-fit:cover;border-radius:4px" alt="hero">',
+                obj.hero_image.url,
+            )
+        return "—"
 
     @admin.display(description="Latitude")
     def latitude(self, obj):

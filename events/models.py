@@ -219,6 +219,14 @@ class Event(models.Model):
     starts_at = models.DateTimeField()
     ends_at = models.DateTimeField(null=True, blank=True)
 
+    # Optional hero/banner image. The file is stored under MEDIA_ROOT/events/hero/
+    # (a persistent Docker volume); only the path is held in the DB. The API exposes
+    # its absolute URL (read-only); uploads happen in the backoffice.
+    hero_image = models.ImageField(
+        upload_to="events/hero/", null=True, blank=True,
+        help_text="Optional hero/banner image for the event.",
+    )
+
     venue = models.ForeignKey(
         Venue, on_delete=models.SET_NULL, null=True, blank=True, related_name="events"
     )

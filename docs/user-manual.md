@@ -34,11 +34,12 @@ docker compose exec web python manage.py createsuperuser   # first staff login
 docker compose exec web python manage.py seed_cities      # powers ?near_city= (one-time)
 ```
 
-**Want a fully populated catalog to explore?** One command seeds coherent demo data across
-every area — organizations, venues, categories, event sources (approved/disabled/unapproved),
-ingestion runs (succeeded/failed/running), observations (pending/accepted/rejected/promoted),
-and events with lifecycle + provenance variety, plus a `demo` / `demo12345` staff user and
-the `ingestion` group:
+**Want a fully populated catalog to explore?** One command seeds coherent, JSON-driven demo
+data across every area — 20 organizations, 120 venues across 15 European cities, 8 categories,
+20 event sources (approved/disabled/unapproved), ingestion runs (succeeded/failed/running),
+observations (pending/accepted/rejected/promoted), and 400 canonical events with full lifecycle
++ classification variety, each with a generated hero image — plus a `demo` / `demo12345` staff
+user and the `ingestion` group:
 
 ```bash
 docker compose exec web python manage.py seed_demo   # idempotent & non-destructive
