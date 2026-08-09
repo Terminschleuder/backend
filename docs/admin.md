@@ -1,12 +1,13 @@
 # Admin backoffice
 
 The human backoffice for the terminschleuder API. It is a custom Django `AdminSite`
-(`terminschleuder_admin`, in the [`admin` app](../admin/)) mounted at the **root (`/`)**, so
-operators don't have to remember an `/admin/` prefix.
+(`terminschleuder_admin`, in the [`admin` app](../admin/)) mounted at **`/admin/`**. The
+site root (`/`) is a public marketing landing page.
 
 ## Getting in
 
-- Browse to **`http://localhost:8000/`**. Anonymous visitors redirect to `/login/`.
+- Browse to **`http://localhost:8000/admin/`**. Anonymous visitors redirect to
+  `/admin/login/`.
 - Log in with a **staff** user. Create one the first time:
 
   ```bash
@@ -15,7 +16,6 @@ operators don't have to remember an `/admin/` prefix.
 
   (Superusers are staff.) The backoffice uses **Django session auth on the project's custom
   `User`** — the same user model the API authenticates — so there is no separate auth system.
-  `/admin/` redirects to `/` for old bookmarks.
 
 ## What it manages
 
@@ -109,8 +109,10 @@ sequenceDiagram
 - `admin/apps.py` — `AdminConfig` with `label = "backoffice"` (the package is named `admin`,
   so the label is overridden to avoid clashing with `django.contrib.admin`'s `admin` label).
   `ready()` imports `admin.admin` because custom `AdminSite`s are **not** auto-discovered.
-- `config/urls.py` — the three `api/...` includes are listed **above**
-  `path("", terminschleuder_admin.urls)` so the admin catch-all never shadows the API.
+- `config/urls.py` — the backoffice is mounted at `path("admin/", terminschleuder_admin.urls)`.
+  The admin's built-in catch-all is therefore confined to `/admin/...` and cannot shadow
+  `/media/...` (served above it under `DEBUG`) or the API. The site root (`/`) is a public
+  `TemplateView` landing page.
 
 > **Gotcha:** because the per-app `admin.py` files no longer use `@admin.register(...)`,
 > registration happens **only** in `admin/admin.py`. If you add a model, register it there on

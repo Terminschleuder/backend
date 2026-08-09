@@ -1,0 +1,241 @@
+<!doctype html>
+<!--
+  ============================================================
+  Public marketing landing page for terminschleuder.
+  Served at "/" by a plain TemplateView (no auth, no JS, no external
+  assets — inline CSS only, so it renders in dev (runserver) and prod
+  (gunicorn) with zero static-file infrastructure).
+
+  ============================================================
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>terminschleuder — events, nearby, now</title>
+    <meta
+      name="description"
+      content="terminschleuder is a geospatial events discovery platform: a read-only REST API for finding events near you, with a 2000+ city gazetteer, an ingestion pipeline with full provenance, and multi-tenant organization ownership."
+    />
+    <style>
+      :root {
+        --bg: #0f172a;
+        --bg-2: #1e293b;
+        --panel: #111c33;
+        --text: #e2e8f0;
+        --muted: #94a3b8;
+        --accent: #38bdf8;
+        --accent-2: #818cf8;
+        --border: #1f2b45;
+        --radius: 14px;
+      }
+      * { box-sizing: border-box; }
+      html { scroll-behavior: smooth; }
+      body {
+        margin: 0;
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        color: var(--text);
+        background:
+          radial-gradient(1200px 600px at 80% -10%, rgba(56, 189, 248, 0.12), transparent 60%),
+          radial-gradient(1000px 500px at 0% 0%, rgba(129, 140, 248, 0.10), transparent 55%),
+          linear-gradient(180deg, var(--bg-2), var(--bg));
+        line-height: 1.6;
+      }
+      a { color: var(--accent); text-decoration: none; }
+      a:hover { text-decoration: underline; }
+      .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+
+      /* Nav */
+      header.nav {
+        position: sticky; top: 0; z-index: 10;
+        backdrop-filter: blur(8px);
+        background: rgba(15, 23, 42, 0.6);
+        border-bottom: 1px solid var(--border);
+      }
+      .nav-inner {
+        display: flex; align-items: center; justify-content: space-between;
+        height: 60px;
+      }
+      .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; letter-spacing: -0.01em; }
+      .brand .mark {
+        width: 28px; height: 28px; border-radius: 8px;
+        background: linear-gradient(135deg, var(--accent), var(--accent-2));
+        display: grid; place-items: center; color: #0b1220; font-weight: 800;
+      }
+      .nav-links { display: flex; gap: 22px; font-size: 14px; }
+      .nav-links a { color: var(--muted); }
+      .nav-links a:hover { color: var(--text); text-decoration: none; }
+
+      /* Hero */
+      .hero { padding: 96px 0 64px; text-align: center; }
+      .pill {
+        display: inline-block; font-size: 13px; color: var(--accent);
+        border: 1px solid var(--border); background: rgba(56, 189, 248, 0.06);
+        padding: 6px 14px; border-radius: 999px; margin-bottom: 22px;
+      }
+      h1 {
+        font-size: clamp(34px, 6vw, 60px); line-height: 1.05; margin: 0 0 18px;
+        letter-spacing: -0.02em;
+        background: linear-gradient(90deg, #f1f5f9, #c7d2fe 60%, #93c5fd);
+        -webkit-background-clip: text; background-clip: text; color: transparent;
+      }
+      .lede { font-size: clamp(17px, 2.2vw, 21px); color: var(--muted); max-width: 720px; margin: 0 auto 34px; }
+      .cta-row { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; }
+      .btn {
+        display: inline-flex; align-items: center; gap: 8px;
+        padding: 12px 22px; border-radius: 10px; font-weight: 600; font-size: 15px;
+        border: 1px solid transparent; transition: transform .12s ease, background .2s ease;
+      }
+      .btn:hover { text-decoration: none; transform: translateY(-1px); }
+      .btn-primary { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #0b1220; }
+      .btn-ghost { background: rgba(255,255,255,0.04); border-color: var(--border); color: var(--text); }
+      .btn-ghost:hover { border-color: var(--accent); }
+
+      /* Features */
+      .section { padding: 56px 0; }
+      .section h2 { font-size: clamp(24px, 3.4vw, 32px); text-align: center; margin: 0 0 8px; letter-spacing: -0.01em; }
+      .section .sub { text-align: center; color: var(--muted); margin: 0 0 40px; }
+      .grid { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+      .card {
+        background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+        border: 1px solid var(--border); border-radius: var(--radius); padding: 24px;
+      }
+      .card .ico { font-size: 22px; margin-bottom: 12px; }
+      .card h3 { margin: 0 0 8px; font-size: 18px; }
+      .card p { margin: 0; color: var(--muted); font-size: 15px; }
+
+      /* API strip */
+      .api {
+        margin: 24px 0 0; border: 1px solid var(--border); border-radius: var(--radius);
+        background: #0b1426; overflow: hidden;
+      }
+      .api pre {
+        margin: 0; padding: 22px 24px; overflow-x: auto; font-size: 13.5px;
+        font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+        color: #cbd5e1;
+      }
+      .api .c-key { color: var(--accent); }
+      .api .c-str { color: #86efac; }
+      .api .c-num { color: #fca5a5; }
+      .api .bar { display: flex; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+      .api .dot { width: 11px; height: 11px; border-radius: 50%; background: #334155; }
+
+      footer { border-top: 1px solid var(--border); margin-top: 40px; padding: 32px 0; color: var(--muted); font-size: 14px; }
+      .foot-row { display: flex; flex-wrap: wrap; gap: 12px 28px; justify-content: space-between; align-items: center; }
+      .foot-links { display: flex; flex-wrap: wrap; gap: 20px; }
+      .foot-links a { color: var(--muted); }
+      .foot-links a:hover { color: var(--text); }
+      @media (max-width: 560px) { .nav-links { display: none; } }
+    </style>
+  </head>
+  <body>
+    <header class="nav">
+      <div class="wrap nav-inner">
+        <div class="brand">
+          <span class="mark">t</span> terminschleuder
+        </div>
+        <nav class="nav-links">
+          <a href="/api/schema/swagger-ui/">API</a>
+          <a href="/api/schema/redoc/">Docs</a>
+          <a href="/admin/">Backoffice</a>
+          <a href="https://github.com/Terminschleuder">Source</a>
+        </nav>
+      </div>
+    </header>
+
+    <section class="hero">
+      <div class="wrap">
+        <span class="pill">events · nearby · now</span>
+        <h1>Find events, wherever you are.</h1>
+        <p class="lede">
+          terminschleuder is a geospatial events discovery platform. A read-only
+          REST API surfaces events near a city or coordinates, backed by a 2000+
+          city gazetteer, an ingestion pipeline with full provenance, and
+          multi-tenant organization ownership.
+        </p>
+        <div class="cta-row">
+          <a class="btn btn-primary" href="https://demo.terminschleuder.onlinehttps://github.com/Terminschleuder">Try the demo →</a>
+          <a class="btn btn-ghost" href="/api/schema/swagger-ui/">Explore the API</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="wrap">
+        <h2>Everything an unauthenticated client can do</h2>
+        <p class="sub">A public, read-only surface — designed to be embedded in any customer site.</p>
+        <div class="grid">
+          <div class="card">
+            <div class="ico">📍</div>
+            <h3>Proximity search</h3>
+            <p>Find events near a city (gazetteer centroid) or near arbitrary lat/lon, with a configurable radius. Online events are excluded from proximity results and distance is annotated on every hit.</p>
+          </div>
+          <div class="card">
+            <div class="ico">🗺️</div>
+            <h3>City gazetteer</h3>
+            <p>A 2000+ European city catalog (PostGIS) with slugs, coordinates, and per-city default radii — the backbone of the <code>near_city</code> filter and the map views.</p>
+          </div>
+          <div class="card">
+            <div class="ico">🔗</div>
+            <h3>Ingestion &amp; provenance</h3>
+            <p>An extractor surface pulls from approved sources into an observation queue; operators review and promote observations to canonical events. Every event carries its original URL, platform, source, and promotion provenance.</p>
+          </div>
+          <div class="card">
+            <div class="ico">🏢</div>
+            <h3>Multi-tenant ownership</h3>
+            <p>Organizations own their events and sources through group-based permissions. Service accounts and API keys scope extractor access per organization.</p>
+          </div>
+          <div class="card">
+            <div class="ico">🛡️</div>
+            <h3>Read-only public API</h3>
+            <p>Anonymous clients get safe, read-only <code>GET</code> access to events, cities, venues, organizations, and categories — CORS-enabled and self-describing via OpenAPI 3.</p>
+          </div>
+          <div class="card">
+            <div class="ico">🖥️</div>
+            <h3>Reference demo client</h3>
+            <p>A React + TypeScript SPA demonstrates the full customer experience: filters, proximity, maps, pagination, and live API configuration — one image, any backend.</p>
+          </div>
+        </div>
+
+        <div class="api" aria-label="Example API request">
+          <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+<pre><span class="c-key">$</span> curl <span class="c-str">"http://localhost:8000/api/events/?near_city=berlin-de&amp;radius_km=20"</span>
+
+{
+  <span class="c-key">"count"</span>: <span class="c-num">45</span>,
+  <span class="c-key">"next"</span>: <span class="c-str">"http://localhost:8000/api/events/?...&amp;page=2"</span>,
+  <span class="c-key">"results"</span>: [
+    {
+      <span class="c-key">"title"</span>: <span class="c-str">"Berlin Python Meetup #42"</span>,
+      <span class="c-key">"starts_at"</span>: <span class="c-str">"2026-09-08T17:00:00Z"</span>,
+      <span class="c-key">"attendance_mode"</span>: <span class="c-str">"physical"</span>,
+      <span class="c-key">"distance"</span>: <span class="c-num">0.43</span>,
+      <span class="c-key">"venue"</span>: { <span class="c-key">"city"</span>: <span class="c-str">"Berlin"</span>, ... },
+      <span class="c-key">"hero_image"</span>: <span class="c-str">"http://localhost:8000/media/events/hero/...png"</span>,
+      ...
+    },
+    ...
+  ]
+}</pre>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      <div class="wrap foot-row">
+        <div class="brand"><span class="mark">t</span> terminschleuder</div>
+        <div class="foot-links">
+          <a href="/api/schema/swagger-ui/">Swagger UI</a>
+          <a href="/api/schema/redoc/">ReDoc</a>
+          <a href="/api/schema/">OpenAPI schema</a>
+          <a href="/admin/">Backoffice</a>
+          <a href="https://demo.terminschleuder.online">Demo</a>
+          <a href="https://github.com/Terminschleuder">Source code</a>
+        </div>
+      </div>
+      <div class="wrap" style="margin-top:14px;font-size:13px;">
+        Apache License 2.0 · Map data © OpenStreetMap contributors
+      </div>
+    </footer>
+  </body>
+</html>

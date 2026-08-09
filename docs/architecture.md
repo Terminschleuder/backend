@@ -54,7 +54,7 @@ flowchart LR
 | `events` | Canonical events, venues, organizations, categories; **ingestion & provenance** (event sources, ingestion runs, event observations); event lifecycle; proximity search; ownership permissions. The extractor-facing API surface (`ingestion_views.py` / `ingestion_urls.py` / `ingestion_serializers.py`) lives here too — not in a separate app — to avoid a cross-app migration cycle on `Event.source`/`Event.promoted_from`. |
 | `accounts` | Users, service/system accounts, API keys, JWT views, registration. |
 | `locations` | City gazetteer (catalog + `?near_city=` resolution); seeded from GeoNames. |
-| `admin` | Human backoffice: a custom `AdminSite` (`terminschleuder_admin`) mounted at `/`, reusing Django session auth. Owns service-account & API-key issuance, group/city/organization/source/observation/event maintenance, observation promotion, and event lifecycle. App label `backoffice` (the package is `admin` but the label is overridden to avoid clashing with `django.contrib.admin`). |
+| `admin` | Human backoffice: a custom `AdminSite` (`terminschleuder_admin`) mounted at `/admin/`, reusing Django session auth. Owns service-account & API-key issuance, group/city/organization/source/observation/event maintenance, observation promotion, and event lifecycle. App label `backoffice` (the package is `admin` but the label is overridden to avoid clashing with `django.contrib.admin`). |
 
 ## URL routing
 
@@ -65,15 +65,18 @@ flowchart LR
     P -->|"/api/ingestion/"| Ing["events.ingestion_urls (due sources / runs / observations)"]
     P -->|"/api/"| API["events + locations (DRF routers)"]
     P -->|"/api/schema/"| Schema["OpenAPI 3 schema + Swagger/ReDoc"]
-    P -->|"/admin/"| Redir["301 -> /"]
-    P -->|"/media/"| Media["uploaded media (dev only)"]
-    P -->|"/  (everything else)"| Back["terminschleuder_admin (backoffice)"]
+    P -->|"/media/"| Media["uploaded media (dev only; prod via reverse proxy)"]
+    P -->|"/admin/"| Back["terminschleuder_admin (backoffice; anon -> /admin/login/)"]
+    P -->|"/"| Landing["public marketing page (TemplateView, no auth)"]
+    P -->|"/anything else"| Nf["404"]
 ```
 
-The API includes are listed **before** `path("", terminschleuder_admin.urls)` so the admin
-site's permissive catch-all never shadows `/api/...`; `/api/ingestion/` is listed above
-`/api/` so its router wins. The backoffice uses Django session auth + `is_staff`; anonymous
-`/` redirects to `/login/`. See [Authentication](authentication.md) and
+The admin is mounted at `path("admin/", terminschleuder_admin.urls)` so its built-in
+catch-all is confined to `/admin/...` and cannot shadow `/api/...` or `/media/...`
+(`/api/ingestion/` is listed above `/api/` so its router wins). The site root (`/`) is a
+public `TemplateView` landing page (no auth, no catch-all), so unknown paths 404 instead
+of redirecting to login. The backoffice uses Django session auth + `is_staff`; anonymous
+`/admin/` redirects to `/admin/login/`. See [Authentication](authentication.md) and
 [Admin backoffice](admin.md).
 
 ## Request lifecycle
@@ -181,7 +184,7 @@ images are stored under `events/hero/`; the API exposes their absolute URL read-
 ├── requirements.txt
 ├── start.sh                  # thin `docker compose up` wrapper
 ├── config/                   # Django project: settings, urls, wsgi, asgi, pagination
-├── admin/                    # backoffice: custom AdminSite at / (label "backoffice")
+├── admin/                    # backoffice: custom AdminSite at /admin/ (label "backoffice")
 ├── events/                   # events, venues, organizations, categories + proximity;
 │   │                          ingestion & provenance (EventSource, IngestionRun,
 │   │                          EventObservation); event lifecycle; extractor API

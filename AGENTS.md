@@ -107,15 +107,17 @@ a generated migration without `--check --dry-run` reporting "No changes detected
 - **PostGIS Point order is `(longitude, latitude)`** — `Point(13.405, 52.52)` is Berlin.
 - **`?near_city=<slug>` (gazetteer centroid, distance filter) is distinct from
   `?city=<text>` (exact venue-city match).** Don't conflate them.
-- **Backoffice is a custom `AdminSite` at `/`.** Registration lives in **`admin/admin.py`**
-  on `terminschleuder_admin` — the per-app `admin.py` files define `ModelAdmin` classes but
-  do **not** `@admin.register(...)` (that would register on the unused default site). Add a
-  new model → register it in `admin/admin.py`. The app package is `admin` but its
-  `AppConfig.label` is `"backoffice"` (avoids clashing with `django.contrib.admin`'s label),
-  so makemigrations/tests reference label `backoffice`. In `config/urls.py` the `api/...`
-  includes must stay **above** `path("", terminschleuder_admin.urls)` or the admin catch-all
-  shadows the API. The `AdminSite.name` stays `"admin"` (default) so built-in admin templates
-  reverse correctly.
+- **Backoffice is a custom `AdminSite` at `/admin/`.** Registration lives in
+  **`admin/admin.py`** on `terminschleuder_admin` — the per-app `admin.py` files define
+  `ModelAdmin` classes but do **not** `@admin.register(...)` (that would register on the
+  unused default site). Add a new model → register it in `admin/admin.py`. The app package
+  is `admin` but its `AppConfig.label` is `"backoffice"` (avoids clashing with
+  `django.contrib.admin`'s label), so makemigrations/tests reference label `backoffice`.
+  In `config/urls.py` the admin is mounted at `path("admin/", terminschleuder_admin.urls)`,
+  so its built-in catch-all is **confined to `/admin/...`** and cannot shadow `/api/...` or
+  `/media/...` (served under DEBUG). The site root (`/`) is a public `TemplateView` landing
+  page. The `AdminSite.name` stays `"admin"` (default) so built-in admin templates reverse
+  correctly.
 
 ## Commit conventions
 
@@ -128,7 +130,7 @@ a generated migration without `--check --dry-run` reporting "No changes detected
 
 ```
 config/      Django project (settings, urls, pagination)
-admin/       backoffice: custom AdminSite at / (label "backoffice"); registry in admin/admin.py
+admin/       backoffice: custom AdminSite at /admin/ (label "backoffice"); registry in admin/admin.py
 events/      events, venues, organizers, categories + proximity + ownership
 accounts/    users, service accounts, API keys, JWT/session views
 locations/   city gazetteer (City model, /api/cities/, seed_cities)

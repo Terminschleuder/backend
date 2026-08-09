@@ -48,10 +48,10 @@ docker compose exec web python manage.py seed_demo   # idempotent & non-destruct
 Re-running it never duplicates or overwrites anything you've since edited, so it's safe to
 run alongside your own data.
 
-Then open **http://localhost:8000/** in a browser. Anonymous visitors are sent to `/login/`;
-sign in with the superuser you just made (or the `demo` user from `seed_demo`). Everything
-operator-facing happens in this backoffice (a custom Django admin mounted at the root). The
-old `/admin/` path redirects to `/` for bookmarks.
+Then open **http://localhost:8000/admin/** in a browser. Anonymous visitors are sent to
+`/admin/login/`; sign in with the superuser you just made (or the `demo` user from
+`seed_demo`). Everything operator-facing happens in this backoffice (a custom Django admin
+mounted at `/admin/`). The site root (`/`) is a public marketing landing page (no auth).
 
 All `manage.py` and `pytest` commands run **inside the container** — never on the host (no
 GIS libraries there). See [Architecture → no host GIS](architecture.md).

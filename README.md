@@ -100,20 +100,20 @@ The server listens on **http://localhost:8000**.
 
 | URL                                  | What it is                              |
 | ------------------------------------ | --------------------------------------- |
-| `http://localhost:8000/`             | **Backoffice** (admin login) — anon redirects to `/login/` |
-| `http://localhost:8000/admin/`       | redirects to `/` (kept for old bookmarks) |
+| `http://localhost:8000/`             | **Public landing page** (marketing, no auth) |
+| `http://localhost:8000/admin/`       | **Backoffice** (admin login) — anon redirects to `/admin/login/` |
 | `http://localhost:8000/api/`         | API root — lists all event endpoints    |
 | `http://localhost:8000/api/auth/`    | auth endpoints (register/login/me/token) |
 
 `/api/` and the individual collections render DRF's **browsable API** in a browser. The
-backoffice at `/` is a custom Django `AdminSite` (see [Admin backoffice](#admin-backoffice)).
+backoffice at `/admin/` is a custom Django `AdminSite` (see [Admin backoffice](#admin-backoffice)).
 
 ### 3. Create an admin user / seed sample data
 
 In a separate terminal while the stack is running:
 
 ```bash
-# Backoffice login for / (root)
+# Backoffice login for /admin/
 docker compose exec web python manage.py createsuperuser
 
 # City gazetteer (all European cities >= 50k population) — powers ?near_city=
@@ -329,9 +329,9 @@ docker compose exec web python manage.py create_service_account extractor --grou
 ## Admin backoffice
 
 The human backoffice is a custom Django `AdminSite` (the `admin` app, app label `backoffice`)
-mounted at the **root (`/`)**. It reuses the project's Django auth — log in with a **staff**
-user (e.g. the superuser from `createsuperuser`). Anonymous visitors are redirected to
-`/login/`. The old `/admin/` path redirects to `/`.
+mounted at **`/admin/`**. It reuses the project's Django auth — log in with a **staff** user
+(e.g. the superuser from `createsuperuser`). Anonymous visitors are redirected to
+`/admin/login/`. The site root (`/`) is a public marketing landing page (no auth).
 
 It covers all the operator tasks:
 
@@ -409,7 +409,7 @@ The compose override only swaps in `runserver` for dev. For production:
 ├── requirements.txt
 ├── start.sh                  # thin `docker compose up` wrapper
 ├── config/                   # Django project: settings, urls, wsgi, asgi
-├── admin/                    # backoffice (custom AdminSite at /, service-account & API-key flows)
+├── admin/                    # backoffice (custom AdminSite at /admin/, service-account & API-key flows)
 ├── events/                   # events, venues, organizations, categories + proximity;
 │                             #   ingestion & provenance (sources/runs/observations);
 │                             #   event lifecycle; extractor API (/api/ingestion/)
@@ -423,9 +423,9 @@ The compose override only swaps in `runserver` for dev. For production:
 
 ## Troubleshooting
 
-- **`/` redirects to `/login/`** — expected. The root is the backoffice (custom admin site);
-  log in with a staff/superuser. `/admin/` redirects to `/`. See [Open the app](#2-open-the-app)
-  and [Admin backoffice](#admin-backoffice).
+- **`/admin/` redirects to `/admin/login/`** — expected. The backoffice is a custom admin
+  site mounted at `/admin/`; log in with a staff/superuser. The root (`/`) is a public
+  landing page. See [Open the app](#2-open-the-app) and [Admin backoffice](#admin-backoffice).
 - **Admin shows a login page but I can't log in** — create a superuser first:
   `docker compose exec web python manage.py createsuperuser`.
 - **`docker compose` commands fail with a DB connection error** — make sure the `db`

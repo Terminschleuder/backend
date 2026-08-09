@@ -2,20 +2,26 @@
 URL configuration for the terminschleuder backend.
 
 Routes:
-    /                  — backoffice (custom AdminSite; anon -> /login/)
-    /api/auth/         — register / login / logout / me  (accounts)
+    /                  — public marketing landing page (no auth)
+    /admin/             — backoffice (custom AdminSite; anon -> /admin/login/)
+    /api/auth/          — register / login / logout / me  (accounts)
     /api/              — events, venues, organizations, categories  (events)
     /api/              — cities  (locations)
     /api/ingestion/    — extractor surface: due sources, runs, observations
     /api/schema/       — OpenAPI 3 schema (drf-spectacular) + Swagger UI / ReDoc
     /media/            — uploaded media (dev only; prod via reverse proxy)
-    /admin/            — redirect to / (kept for old bookmarks)
+
+The backoffice is mounted at ``/admin/`` (not ``/``) so the admin's built-in
+catch-all view is confined to ``/admin/...`` and never swallows ``/media/...``
+(which previously made anon hero-image requests redirect to the login page).
+The public landing page at ``/`` is a plain ``TemplateView`` with no catch-all,
+so unknown paths 404 instead of redirecting to login.
 """
 
 from django.conf import settings
 from django.conf.urls.static import static
 from django.urls import include, path
-from django.views.generic import RedirectView
+from django.views.generic import TemplateView
 from drf_spectacular.views import (
     SpectacularAPIView,
     SpectacularRedocView,
@@ -25,8 +31,7 @@ from drf_spectacular.views import (
 from admin.admin_site import terminschleuder_admin
 
 urlpatterns = [
-    # API first — the admin site at "/" has a permissive catch-all, so these
-    # more specific includes must come above it.
+    # Public API (read-only + auth + ingestion) + OpenAPI docs.
     path("api/auth/", include(("accounts.urls", "accounts"), namespace="accounts")),
     path("api/ingestion/", include(("events.ingestion_urls", "events"), namespace="ingestion")),
     path("api/", include(("events.urls", "events"), namespace="events")),
@@ -35,13 +40,18 @@ urlpatterns = [
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path("api/schema/swagger-ui/", SpectacularSwaggerView.as_view(), name="swagger"),
     path("api/schema/redoc/", SpectacularRedocView.as_view(), name="redoc"),
-    # Old /admin/ bookmark -> root backoffice.
-    path("admin/", RedirectView.as_view(url="/", permanent=False)),
-    # Backoffice at the root.
-    path("", terminschleuder_admin.urls),
 ]
 
 # Serve uploaded media (event hero images) in development. In production the
-# reverse proxy serves /media/ from the media volume.
+# reverse proxy serves /media/ from the media volume. Listed before the admin
+# and landing routes so /media/... is matched here, not by a catch-all.
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+urlpatterns += [
+    # Backoffice (custom AdminSite). Its built-in catch-all is now confined to
+    # /admin/... and cannot shadow /media/ or the API.
+    path("admin/", terminschleuder_admin.urls),
+    # Public marketing landing page (no auth, no catch-all).
+    path("", TemplateView.as_view(template_name="landing.html"), name="landing"),
+]

@@ -175,11 +175,12 @@ endpoint.
 ## Backoffice access (the `admin` app)
 
 The human backoffice is a custom Django `AdminSite` (`terminschleuder_admin`, in the `admin`
-app) mounted at `/`. It is **not** a fourth auth mechanism — it authenticates with the same
+app) mounted at `/admin/`. It is **not** a fourth auth mechanism — it authenticates with the same
 **session auth + custom `User`** described above, gated by `is_staff` (superusers qualify).
 
-- Log in at `/login/` with a staff user (create one via `manage.py createsuperuser`).
-  Anonymous `/` redirects to `/login/`. The old `/admin/` path redirects to `/`.
+- Log in at `/admin/login/` with a staff user (create one via `manage.py createsuperuser`).
+  Anonymous `/admin/` redirects to `/admin/login/`. The site root (`/`) is a public
+  marketing landing page (no auth).
 - The backoffice is where operators **create service accounts** (the app secret is generated
   and shown **once**, just like an API key) and **issue API keys** (the raw key shown **once**).
 - Group & permission maintenance (which drives service-account powers and event

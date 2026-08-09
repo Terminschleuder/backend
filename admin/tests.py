@@ -85,20 +85,39 @@ def test_apikey_list_never_exposes_raw_key(admin_client, admin_user):
 
 
 @pytest.mark.django_db
-def test_root_redirects_anon_to_login(client):
+def test_root_is_public_landing(client):
+    # "/" is a public marketing page (no auth) — not a redirect to login.
     resp = client.get("/")
-    assert resp.status_code == 302
-    assert "/login/" in resp.url
+    assert resp.status_code == 200
+    assert "terminschleuder" in resp.content.decode().lower()
 
 
 @pytest.mark.django_db
-def test_root_is_admin_index_for_staff(admin_client):
-    resp = admin_client.get("/")
+def test_admin_redirects_anon_to_login(client):
+    resp = client.get("/admin/")
+    assert resp.status_code == 302
+    assert "/admin/login/" in resp.url
+
+
+@pytest.mark.django_db
+def test_admin_is_index_for_staff(admin_client):
+    resp = admin_client.get("/admin/")
     assert resp.status_code == 200
 
 
 @pytest.mark.django_db
-def test_api_routes_not_shadowed_by_root_admin(client):
+def test_media_not_intercepted_by_admin_catchall(client):
+    # The admin's built-in catch-all used to swallow /media/... (mounted at "/")
+    # and redirect anon to login. Now confined to /admin/..., a missing media file
+    # must reach the file server (404), not redirect to /login/.
+    resp = client.get("/media/does-not-exist.png")
+    assert resp.status_code != 302
+    assert "/login/" not in resp.headers.get("Location", "")
+
+
+@pytest.mark.django_db
+def test_api_routes_not_shadowed_by_admin_catchall(client):
+    # The admin catch-all is confined to /admin/... and cannot shadow the API.
     assert client.get("/api/events/").status_code == 200
 
 
