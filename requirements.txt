@@ -9,7 +9,7 @@ drf-spectacular==0.28.0
 gunicorn==26.0.0
 iniconfig==2.3.0
 packaging==26.3
-Pillow==11.3.0
+Pillow==12.3.0
 pluggy==1.6.0
 psycopg==3.3.4
 psycopg-binary==3.3.4
