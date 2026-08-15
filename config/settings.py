@@ -218,6 +218,16 @@ REST_FRAMEWORK = {
 }
 
 
+# Run-over-run observation reconciliation (events app).
+# See events/reconciliation.py. These bound the heuristic that classifies each
+# previously-observed event as observed/updated/postponed/no-longer-observed/
+# completed by comparing a run to the previous successful run for its source.
+EVENTS_STALE_AFTER_RUNS = 2          # consecutive misses before NO_LONGER_OBSERVED
+EVENTS_POSTPONED_DAY_TOLERANCE = 14  # fuzzy-match window (days) for postponed detection
+EVENTS_UPCOMING_HORIZON_DAYS = 365   # upper bound of the "expected still-observed" set
+EVENTS_GRACE_PAST_DAYS = 1           # lower bound (just-past events are still expected)
+EVENTS_FEED_CAP = 100                # extractor max_feed_events; a cap-hit run skips miss-marking
+
 # drf-spectacular — OpenAPI 3 schema served at /api/schema/ (+ Swagger UI / ReDoc).
 # External clients (the demo) codegen TypeScript types from this.
 SPECTACULAR_SETTINGS = {

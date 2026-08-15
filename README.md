@@ -203,9 +203,9 @@ OpenAPI 3 schema at `/api/schema/` (Swagger UI at `/api/schema/swagger-ui/`, ReD
 | GET / POST    | `/api/venues/`, `/api/categories/`    | mixed           | catalog + CRUD        |
 | GET           | `/api/schema/` , `/swagger-ui/` , `/redoc/` | public    | OpenAPI 3 schema + interactive docs (self-describing API; the demo client codegens types from `/api/schema/`) |
 | GET           | `/api/ingestion/sources/due/`         | ingestion       | extractor work queue (due sources) |
-| POST          | `/api/ingestion/runs/` , `/<id>/success/` `failure/` | ingestion | report / finish a run |
-| POST          | `/api/ingestion/observations/` , `/bulk/` | ingestion    | submit untrusted observations |
-| GET           | `/api/ingestion/observations/` , `/api/ingestion/runs/` | ingestion | list submitted |
+| POST          | `/api/ingestion/runs/` , `/<id>/success/` `failure/` `reconcile/` | ingestion | report / finish a run; `success/` triggers run-over-run reconciliation |
+| POST          | `/api/ingestion/observations/` , `/bulk/` | ingestion    | submit untrusted observations (with a stable `event_key`) |
+| GET           | `/api/ingestion/observations/` , `/api/ingestion/runs/` | ingestion | list submitted (filter by `?lifecycle=`, `?event_key=`) |
 | POST          | `/api/auth/register/`                 | public          | register a user                  |
 | POST          | `/api/auth/token/`                    | public          | obtain JWT (access + refresh)    |
 | POST          | `/api/auth/token/refresh/`            | public          | refresh JWT                      |

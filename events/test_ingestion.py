@@ -20,6 +20,7 @@ def _observation_payload(source, **overrides):
         "starts_at": (timezone.now() + timedelta(days=3)).isoformat(),
         "url": "https://example.com/rust",
         "platform": "meetup",
+        "event_key": "k-rust",
         "latitude": 52.52,
         "longitude": 13.405,
     }
@@ -174,6 +175,38 @@ def test_submit_observations_bulk_creates_all_pending(
     created = EventObservation.objects.filter(source=event_source_approved)
     assert created.count() == 2
     assert {o.status for o in created} == {EventObservation.Status.PENDING}
+
+
+def test_submit_observation_stores_event_key(
+    db, ingestion_api_client, event_source_approved
+):
+    """The extractor sends a stable ``event_key`` for run-over-run reconciliation;
+    it is stored as-is (not force-cleared like ``status``)."""
+    response = ingestion_api_client.post(
+        "/api/ingestion/observations/",
+        _observation_payload(event_source_approved, event_key="ical-uid-42"),
+        format="json",
+    )
+    assert response.status_code == 201
+    obs = EventObservation.objects.get(id=response.data["id"])
+    assert obs.event_key == "ical-uid-42"
+    # The read serializer surfaces the new lifecycle/identity fields.
+    assert response.data["event_key"] == "ical-uid-42"
+    assert response.data["lifecycle"] == EventObservation.Lifecycle.NEW
+
+
+def test_submit_observation_without_event_key_defaults_blank(
+    db, ingestion_api_client, event_source_approved
+):
+    """A partial deploy may omit ``event_key``; it defaults to blank and the
+    observation is still accepted (but never reconciled)."""
+    payload = _observation_payload(event_source_approved)
+    del payload["event_key"]
+    response = ingestion_api_client.post(
+        "/api/ingestion/observations/", payload, format="json"
+    )
+    assert response.status_code == 201
+    assert EventObservation.objects.get(id=response.data["id"]).event_key == ""
 
 
 # --- Permission gating ------------------------------------------------------

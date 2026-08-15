@@ -179,12 +179,27 @@ directly; an operator reviews, optionally corrects, and **promotes** an accepted
 into a canonical event (linked back here only via `Event.promoted_from` — the single source
 of truth for the link).
 
+Each observation carries **two orthogonal axes**:
+
+- `status` — the **operator review** state (`pending` / `accepted` / `rejected` / `promoted`).
+- `lifecycle` — the **run-over-run** state (`new` / `observed` / `updated` / `postponed` /
+  `no_longer_observed` / `completed`), set by reconciliation (`events/reconciliation.py`),
+  *not* by an operator. It tracks whether the event is still being seen across extraction
+  runs, independent of whether a human has reviewed it.
+
 | Field | Type | Notes |
 | --- | --- | --- |
 | `id` | BigAutoField | PK |
 | `source` | FK → EventSource | CASCADE; related name `observations` |
 | `run` | FK → IngestionRun | nullable (SET_NULL); set when reported inside a run |
-| `status` | CharField(20) | `pending` / `accepted` / `rejected` / `promoted`; default `pending`; indexed |
+| `status` | CharField(20) | `pending` / `accepted` / `rejected` / `promoted`; default `pending`; indexed — operator review |
+| `event_key` | CharField(255) | blank, default `""`, indexed; stable per-event identity from the extractor (iCal/jcal `uid`, detail-page `url`, or `t:<hash>` fallback) |
+| `lifecycle` | CharField(25) | `new` / `observed` / `updated` / `postponed` / `no_longer_observed` / `completed`; default `new`; indexed — run-over-run classification |
+| `superseded_by` | FK → EventObservation | nullable (SET_NULL); related name `supersedes`; points the OLD observation to the NEWER one that replaced it |
+| `last_observed_run` | FK → IngestionRun | nullable (SET_NULL); related name `last_seen_observations`; most recent SUCCEEDED run that saw this event |
+| `consecutive_misses` | PositiveIntegerField | default `0`; consecutive runs this event was expected but not seen |
+| `lifecycle_set_at` | DateTimeField | nullable; when `lifecycle` last went terminal (`no_longer_observed` / `completed`) |
+| `lifecycle_note` | TextField | blank; provenance for an auto-applied lifecycle change (e.g. `auto-cancelled: missing 2 run(s)`) |
 | `raw_payload` | JSONField | default `{}`; the full extractor payload, kept for provenance/debug |
 | `title` | CharField(200) | |
 | `description` | TextField | blank |
@@ -202,9 +217,41 @@ of truth for the link).
 | `created_at` | DateTimeField | auto |
 | `updated_at` | DateTimeField | auto |
 
-An index on `(source, status)` backs observation listings. There is **no forward FK to
-`Event`** — promotion creates the `Event` and sets `Event.promoted_from`, then marks the
-observation `promoted`.
+Indexes back observation listings and reconciliation: `(source, status)`,
+`(source, lifecycle)`, `(source, event_key, lifecycle)`, `(source, last_observed_run)`. A
+**partial unique constraint** `unique_obs_per_run_per_key` on `(source, event_key, run)`
+holds only when `event_key` is non-empty and `run` is set — the extractor must not submit the
+same event_key twice in one run (it de-duplicates by key before submitting).
+
+There is **no forward FK to `Event`** — promotion creates the `Event` and sets
+`Event.promoted_from`, then marks the observation `promoted`.
+
+### Run-over-run reconciliation
+
+When a run is finalized (`POST /api/ingestion/runs/<id>/success/`), the backend compares that
+run's observations to the **previous successful run's** observations for the same source and
+classifies each previously-seen event. Matching priority is `event_key` → `url` → fuzzy
+(normalized title + `starts_at` within `EVENTS_POSTPONED_DAY_TOLERANCE` days):
+
+| Result | Meaning | Effect on a promoted canonical `Event` |
+| --- | --- | --- |
+| `OBSERVED` | matched, unchanged | repoint `promoted_from` to the new obs (no field change) |
+| `UPDATED` | matched, "hard" facts changed (title/venue/url/location) | copy new facts + repoint `promoted_from` |
+| `POSTPONED` | matched, `starts_at`/`ends_at` changed | copy the moved date + repoint `promoted_from` |
+| `NO_LONGER_OBSERVED` | missing ≥ `EVENTS_STALE_AFTER_RUNS` runs & still upcoming | `Event.status = CANCELLED` + `cancelled_at` |
+| `COMPLETED` | missing but its start time already passed | none (natural end, not a cancellation) |
+| `NEW` | no prior match | stays `pending` for operator review |
+
+Auto-management applies **only** to observations already `PROMOTED` to a canonical `Event`
+with a live (`draft`/`published`) status; already-cancelled/archived events are never
+resurrected. Unpromoted observations only get their `lifecycle` marked, and a matched new
+observation carries the prior review state forward so unchanged events don't re-enter the
+pending queue. Guards: consecutive-miss (`EVENTS_STALE_AFTER_RUNS=2`), date (past →
+`COMPLETED`), feed-cap (a run hitting `EVENTS_FEED_CAP=100` skips miss-marking — absence is
+unreliable), and a horizon bound (`starts_at` within `[now − EVENTS_GRACE_PAST_DAYS,
+now + EVENTS_UPCOMING_HORIZON_DAYS]`, default 1 / 365). Reconciliation is best-effort and never
+flips a SUCCEEDED run to FAILED; re-run it manually with
+`POST /api/ingestion/runs/<id>/reconcile/`.
 
 ## City (gazetteer)
 

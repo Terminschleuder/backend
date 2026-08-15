@@ -15,7 +15,9 @@ operator action (admin), never done by the extractor.
 """
 
 from datetime import timedelta
+import logging
 
+from django.db import transaction
 from django.db.models import F
 from django.utils import timezone
 from rest_framework import mixins, permissions, viewsets
@@ -32,6 +34,9 @@ from .ingestion_serializers import (
     EventObservationSubmitSerializer,
     IngestionRunSerializer,
 )
+from .reconciliation import reconcile_run
+
+logger = logging.getLogger(__name__)
 
 
 class DueSourceListView(ListAPIView):
@@ -70,6 +75,7 @@ class IngestionRunViewSet(viewsets.ModelViewSet):
         "PUT": ["events.change_ingestionrun"],
         "success": ["events.change_ingestionrun"],
         "failure": ["events.change_ingestionrun"],
+        "reconcile": ["events.change_ingestionrun"],
     }
 
     def get_queryset(self):
@@ -92,13 +98,43 @@ class IngestionRunViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["post"])
     def success(self, request, pk=None):
-        """``POST /api/ingestion/runs/<id>/success/`` — mark the run succeeded."""
+        """``POST /api/ingestion/runs/<id>/success/`` — mark the run succeeded.
+
+        After the run is SUCCEEDED and the source schedule is stamped, run
+        run-over-run reconciliation (the observations were submitted — and
+        committed — in a prior request, so they exist now). Reconciliation is
+        best-effort: a failure here is logged but never flips the run back to
+        FAILED (the run already succeeded).
+        """
         run = self.get_object()
         run.status = IngestionRun.Status.SUCCEEDED
         run.finished_at = timezone.now()
         run.events_found = int(request.data.get("events_found", run.events_found))
         run.save(update_fields=["status", "finished_at", "events_found"])
         self._touch_source_schedule(run)
+
+        try:
+            with transaction.atomic():
+                reconcile_run(run)
+        except Exception:  # noqa: BLE001 — reconciliation must never fail the run
+            logger.exception("Reconciliation failed for run %s", run.pk)
+
+        return Response(IngestionRunSerializer(run).data)
+
+    @action(detail=True, methods=["post"])
+    def reconcile(self, request, pk=None):
+        """``POST /api/ingestion/runs/<id>/reconcile/`` — re-run reconciliation.
+
+        Idempotent-ish: re-classifies against the same previous run. Useful to
+        re-run after a reconciliation bug fix. The run status is not changed.
+        """
+        run = self.get_object()
+        try:
+            with transaction.atomic():
+                reconcile_run(run)
+        except Exception:  # noqa: BLE001
+            logger.exception("Manual reconcile failed for run %s", run.pk)
+            return Response({"error": "reconciliation failed"}, status=500)
         return Response(IngestionRunSerializer(run).data)
 
     @action(detail=True, methods=["post"])
@@ -142,7 +178,7 @@ class EventObservationViewSet(
         "POST": ["events.add_eventobservation"],
         "bulk": ["events.add_eventobservation"],
     }
-    filterset_fields = ["source", "run", "status"]
+    filterset_fields = ["source", "run", "status", "lifecycle", "event_key"]
 
     def get_queryset(self):
         return EventObservation.objects.select_related("source", "run", "reviewed_by")

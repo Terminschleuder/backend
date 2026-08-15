@@ -81,6 +81,13 @@ class EventObservationSerializer(serializers.ModelSerializer):
             "source",
             "run",
             "status",
+            "event_key",
+            "lifecycle",
+            "superseded_by",
+            "last_observed_run",
+            "consecutive_misses",
+            "lifecycle_set_at",
+            "lifecycle_note",
             "title",
             "description",
             "starts_at",
@@ -117,12 +124,22 @@ class EventObservationSubmitSerializer(serializers.ModelSerializer):
 
     ``source`` is required (which source the observation came from); ``run`` is
     optional (set when reporting inside a run). ``status`` is forced to
-    ``pending`` — the extractor can never self-promote. ``latitude`` /
+    ``pending`` — the extractor can never self-promote. ``event_key`` is the
+    stable per-event identity used for run-over-run reconciliation (see
+    ``events/reconciliation.py``); it is **not** force-cleared like ``status``.
+    Empty ``event_key`` is accepted for robustness but such observations are
+    never reconciled (treated as permanently ``NEW``). ``latitude`` /
     ``longitude`` are write-only and stored as ``location``.
     """
 
     latitude = serializers.FloatField(write_only=True, required=False, allow_null=True)
     longitude = serializers.FloatField(write_only=True, required=False, allow_null=True)
+    # Optional-but-populated: the extractor always sends one; empty is accepted so
+    # a partial deploy never hard-fails the bulk submit, but empty-key rows are
+    # skipped by reconciliation (never matched / never marked missing).
+    event_key = serializers.CharField(
+        required=False, allow_blank=True, max_length=255, trim_whitespace=True
+    )
 
     class Meta:
         model = EventObservation
@@ -131,6 +148,7 @@ class EventObservationSubmitSerializer(serializers.ModelSerializer):
             "source",
             "run",
             "status",
+            "event_key",
             "raw_payload",
             "title",
             "description",
@@ -147,10 +165,21 @@ class EventObservationSubmitSerializer(serializers.ModelSerializer):
             "longitude",
         )
         read_only_fields = ("id",)
+        # Disable DRF's auto-generated UniqueTogetherValidator for the
+        # ``unique_obs_per_run_per_key`` constraint. That constraint carries a
+        # ``condition=Q(event_key__gt="")`` (empty keys are exempt) which the
+        # serializer-level validator cannot represent — it would force
+        # ``event_key`` required AND flag false duplicates on empty-key rows.
+        # The DB constraint enforces it correctly (condition included), so we
+        # rely on it as the backstop. The extractor dedups by event_key before
+        # submitting, so a duplicate is a rare IntegrityError, not a common 400.
+        validators = []
 
     def create(self, validated_data):
         # Observations always enter as pending; ignore any body status.
         validated_data["status"] = EventObservation.Status.PENDING
+        # event_key flows through validated_data untouched (not force-cleared).
+        validated_data.setdefault("event_key", "")
         lat = self.initial_data.get("latitude")
         lon = self.initial_data.get("longitude")
         if lat not in (None, "") and lon not in (None, ""):
@@ -178,6 +207,9 @@ class EventObservationBulkSubmitSerializer(serializers.Serializer):
                 lat = payload.pop("latitude", None)
                 lon = payload.pop("longitude", None)
                 payload["status"] = EventObservation.Status.PENDING
+                # New submissions start as NEW; reconciliation reclassifies later.
+                payload.setdefault("lifecycle", EventObservation.Lifecycle.NEW)
+                payload.setdefault("event_key", "")
                 if lat not in (None, "") and lon not in (None, ""):
                     payload["location"] = Point(float(lon), float(lat), srid=4326)
                 created.append(EventObservation.objects.create(**payload))

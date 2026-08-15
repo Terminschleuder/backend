@@ -396,6 +396,19 @@ Requires `events.change_ingestionrun`. Sets `status=succeeded`, `finished_at=now
 optional `events_found`. Also stamps the source's `last_fetched_at` and
 `next_due_at` (= now + `fetch_interval_minutes`).
 
+After the run is SUCCEEDED, **run-over-run reconciliation** runs best-effort: the backend
+compares this run's observations to the previous successful run's for the same source and
+sets each observation's `lifecycle` (see [EventObservation](data-model.md#eventobservation)
+and [reconciliation](data-model.md#run-over-run-reconciliation)). For observations already
+promoted to a canonical `Event`, updates/postponements are auto-applied and disappearances
+auto-cancel the Event. A reconciliation failure is logged but **never flips the run back to
+FAILED**.
+
+### `POST /api/ingestion/runs/<id>/reconcile/` — re-run reconciliation
+
+Requires `events.change_ingestionrun`. Re-runs reconciliation against the same previous run
+(idempotent-ish); useful after a reconciliation bug fix. The run status is not changed.
+
 ### `POST /api/ingestion/runs/<id>/failure/` — finish (failed)
 
 Requires `events.change_ingestionrun`. Sets `status=failed`, `finished_at=now`, takes
@@ -408,13 +421,17 @@ optional `error_message`. Also stamps the source schedule.
 
 Requires `events.add_eventobservation`. Creates one observation forced to `status=pending`.
 `source` (id) is required; `run` (id) is optional. `latitude`/`longitude` are write-only
-and stored as `location`. A body `status` is **ignored** (always pending).
+and stored as `location`. A body `status` is **ignored** (always pending). `event_key` is
+the stable per-event identity (the extractor's iCal/jcal `uid`, detail-page `url`, or
+`t:<hash>` fallback); it is optional-but-populated — empty is accepted but such observations
+are never reconciled (treated as permanently `new`).
 
 ```bash
 curl -X POST http://localhost:8000/api/ingestion/observations/ \
   -H "Authorization: Api-Key $KEY" -H 'Content-Type: application/json' \
   -d '{
     "source": 5, "run": 12,
+    "event_key": "evt-rust-meetup@factory-berlin",
     "title": "Rust Meetup",
     "starts_at": "2026-09-10T19:00:00+02:00",
     "url": "https://example.com/rust", "platform": "meetup",
@@ -423,20 +440,24 @@ curl -X POST http://localhost:8000/api/ingestion/observations/ \
     "latitude": 52.52, "longitude": 13.405,
     "raw_payload": { "…full extractor payload…": true }
   }'
-# → 201 { "id": 88, "status": "pending", "latitude": 52.52, "longitude": 13.405, ... }
+# → 201 { "id": 88, "status": "pending", "event_key": "evt-rust-meetup@factory-berlin",
+#          "lifecycle": "new", "latitude": 52.52, "longitude": 13.405, ... }
 ```
 
 ### `POST /api/ingestion/observations/bulk/` — submit many
 
 Requires `events.add_eventobservation`. Body: `{"observations": [ <observation>, … ]}`.
-Created transactionally (all-or-nothing); each forced to `status=pending`.
+Created transactionally (all-or-nothing); each forced to `status=pending` and
+`lifecycle=new`. The extractor de-duplicates by `event_key` before submitting so the
+per-run `(source, event_key, run)` unique constraint is never hit.
 
 ### `GET /api/ingestion/observations/` — list submitted
 
-Requires `events.view_eventobservation`. Filter by `?source=`, `?run=`, `?status=`.
-(`GET /api/ingestion/runs/` lists runs, requires `events.view_ingestionrun`.) Reviewing and
-promoting observations is an **operator action in the backoffice**, never done by the
-extractor — see [Admin backoffice](admin.md#event-observations--promotion).
+Requires `events.view_eventobservation`. Filter by `?source=`, `?run=`, `?status=`,
+`?lifecycle=`, `?event_key=`. (`GET /api/ingestion/runs/` lists runs, requires
+`events.view_ingestionrun`.) Reviewing and promoting observations is an **operator action in
+the backoffice**, never done by the extractor — see
+[Admin backoffice](admin.md#event-observations--promotion).
 
 ---
 

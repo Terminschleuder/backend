@@ -309,6 +309,17 @@ class EventObservation(models.Model):
     Observations never mutate a canonical ``Event`` directly. An operator
     reviews, optionally corrects, and promotes an accepted observation into a
     canonical event (linked back here via ``Event.promoted_from``).
+
+    Run-over-run lifecycle: ``events/reconciliation.py`` compares each run's
+    observations to the previous successful run's for the same source and sets
+    ``lifecycle`` (NEW/OBSERVED/UPDATED/POSTPONED/NO_LONGER_OBSERVED/COMPLETED),
+    linking superseded observations via ``superseded_by``. The "current active
+    observation per event per source" is::
+
+        EventObservation.objects.filter(
+            source=s, superseded_by__isnull=True,
+            lifecycle__in=[NEW, OBSERVED, UPDATED, POSTPONED],
+        )
     """
 
     class Status(models.TextChoices):
@@ -316,6 +327,17 @@ class EventObservation(models.Model):
         ACCEPTED = "accepted", "Accepted"
         REJECTED = "rejected", "Rejected"
         PROMOTED = "promoted", "Promoted"
+
+    class Lifecycle(models.TextChoices):
+        # Run-over-run classification, orthogonal to the review ``Status`` above.
+        # ``Status`` tracks operator review; ``Lifecycle`` tracks whether the event
+        # is still being seen across extraction runs. See ``events/reconciliation.py``.
+        NEW = "new", "New"  # no prior match this run (still needs review)
+        OBSERVED = "observed", "Observed"  # matched the previous run, unchanged
+        UPDATED = "updated", "Updated"  # matched, non-date fields changed
+        POSTPONED = "postponed", "Postponed"  # matched, starts_at changed
+        NO_LONGER_OBSERVED = "no_longer_observed", "No longer observed"  # missing + upcoming
+        COMPLETED = "completed", "Completed"  # missing but start time already passed
 
     source = models.ForeignKey(
         EventSource, on_delete=models.CASCADE, related_name="observations"
@@ -328,6 +350,45 @@ class EventObservation(models.Model):
         max_length=20, choices=Status.choices, default=Status.PENDING, db_index=True
     )
     raw_payload = models.JSONField(default=dict, blank=True)
+
+    # --- Run-over-run identity + lifecycle (see events/reconciliation.py) ---
+    # Stable per-event identity supplied by the extractor: the iCal/jcal ``uid``
+    # for feed-sourced events, the detail-page ``url`` for listing/detail events,
+    # or a ``t:<hash>`` fallback. Never includes the date for authoritative ids, so
+    # a postponed event still matches; the ``t:`` fallback includes the date so
+    # recurring instances without a uid/url stay distinct.
+    event_key = models.CharField(
+        max_length=255, db_index=True, blank=True, default="",
+        help_text="Stable per-event identity for run-over-run matching.",
+    )
+    lifecycle = models.CharField(
+        max_length=25, choices=Lifecycle.choices, default=Lifecycle.NEW, db_index=True,
+        help_text="Run-over-run classification (orthogonal to review status).",
+    )
+    # Points from the OLD observation to the NEWER one that replaced it.
+    superseded_by = models.ForeignKey(
+        "self", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="supersedes",
+        help_text="Newer observation that replaced this one (if matched/updated).",
+    )
+    # The most recent SUCCEEDED run in which this event_key was seen.
+    last_observed_run = models.ForeignKey(
+        IngestionRun, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="last_seen_observations",
+        help_text="Most recent succeeded run that observed this event.",
+    )
+    consecutive_misses = models.PositiveIntegerField(
+        default=0,
+        help_text="Consecutive runs this event was expected but not seen.",
+    )
+    lifecycle_set_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text="When lifecycle was last set to a terminal state.",
+    )
+    lifecycle_note = models.TextField(
+        blank=True, default="",
+        help_text="Provenance for an auto-applied lifecycle change.",
+    )
 
     # Extracted fields (mirror the canonical Event set; the operator chooses
     # venue/organization at promotion).
@@ -367,6 +428,20 @@ class EventObservation(models.Model):
         ordering = ["-created_at"]
         indexes = [
             models.Index(fields=["source", "status"], name="events_obs_src_status_idx"),
+            models.Index(fields=["source", "lifecycle"], name="events_obs_src_life_idx"),
+            models.Index(
+                fields=["source", "event_key", "lifecycle"], name="events_obs_key_life_idx"
+            ),
+            models.Index(fields=["source", "last_observed_run"], name="events_obs_last_run_idx"),
+        ]
+        constraints = [
+            # The extractor must not submit the same event_key twice in one run.
+            # Condition uses ``event_key__gt=""`` as a portable "non-empty" guard.
+            models.UniqueConstraint(
+                fields=["source", "event_key", "run"],
+                name="unique_obs_per_run_per_key",
+                condition=models.Q(event_key__gt="") & models.Q(run__isnull=False),
+            ),
         ]
 
     def __str__(self) -> str:
