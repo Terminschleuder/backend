@@ -16,5 +16,5 @@ psycopg-binary==3.3.4
 Pygments==2.20.0
 PyJWT==2.13.0
 pytest==9.1.1
-pytest-django==4.13.0
+pytest-django==4.14.0
 sqlparse==0.5.5
