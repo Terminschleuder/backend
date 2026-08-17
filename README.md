@@ -4,7 +4,7 @@ A **Django + Django REST Framework** backend for local events and meetups, featu
 **PostGIS geospatial search** (events within *N* km of a point) and **JWT + API-key
 authentication** for external and service clients.
 
-> **Status:** `alpha-0.01` — early preview. APIs and data models may change before `1.0`.
+> **Status:** `0.3alpha` — early preview. APIs and data models may change before `1.0`.
 > **License:** Apache-2.0 (see [LICENSE](LICENSE)).
 
 ---
@@ -404,11 +404,12 @@ The compose override only swaps in `runserver` for dev. For production:
 CI (`.github/workflows/ci.yml`) builds and tests every push to `main`/`develop`, every
 tag, and every PR. The image is published to the **GitHub Container Registry** only when a
 commit lands on `main` (an accepted PR, once `main` is branch-protected) or a release tag
-is pushed:
+is pushed. For deployment you don't clone this repo — **pull the image** and run it with a
+PostGIS database and your `.env` (see the Production section above):
 
 ```bash
 docker pull ghcr.io/terminschleuder/backend:latest      # from main
-docker pull ghcr.io/terminschleuder/backend:0.1alpha     # a release tag
+docker pull ghcr.io/terminschleuder/backend:0.3alpha     # a release tag
 ```
 
 Development follows a `develop` → `main` cycle: work lands on `develop`, PRs to `main`
