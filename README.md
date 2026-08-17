@@ -396,7 +396,23 @@ The compose override only swaps in `runserver` for dev. For production:
   `DATABASE_URL`.
 - Serve behind a reverse proxy (TLS, static files, etc.) — out of scope here.
 - Pull the image rather than building on the host (the constraint this project was built
-  around).
+  around). The image runs as a **non-root** user (`terminschleuder`, uid 1001); if you
+  bind-mount `media/`, `chown -R 1001:1001` it so uploads can write.
+
+### Container images & releases
+
+CI (`.github/workflows/ci.yml`) builds and tests every push to `main`/`develop`, every
+tag, and every PR. The image is published to the **GitHub Container Registry** only when a
+commit lands on `main` (an accepted PR, once `main` is branch-protected) or a release tag
+is pushed:
+
+```bash
+docker pull ghcr.io/terminschleuder/backend:latest      # from main
+docker pull ghcr.io/terminschleuder/backend:0.1alpha     # a release tag
+```
+
+Development follows a `develop` → `main` cycle: work lands on `develop`, PRs to `main`
+build and publish. Direct pushes to `main` are blocked by branch protection.
 
 ## Project structure
 
