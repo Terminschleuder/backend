@@ -4,7 +4,7 @@ A **Django + Django REST Framework** backend for local events and meetups, featu
 **PostGIS geospatial search** (events within *N* km of a point) and **JWT + API-key
 authentication** for external and service clients.
 
-> **Status:** `0.3alpha` — early preview. APIs and data models may change before `1.0`.
+> **Status:** early preview — APIs and data models may change without notice.
 > **License:** Apache-2.0 (see [LICENSE](LICENSE)).
 
 ---
@@ -60,7 +60,7 @@ Highlights:
 | Concern    | Choice                                              |
 | ---------- | --------------------------------------------------- |
 | Framework  | Django 6.1 + Django REST Framework 3.18             |
-| Database   | PostgreSQL 17 + **PostGIS** (geospatial)            |
+| Database   | PostgreSQL 18 + **PostGIS** (geospatial)            |
 | Auth       | simplejwt (JWT) + custom hashed API keys            |
 | GIS libs   | GDAL / GEOS / PROJ — **bundled in the app image**   |
 | Config     | `django-environ` (`DATABASE_URL`), `django-filter` |
@@ -402,15 +402,22 @@ The compose override only swaps in `runserver` for dev. For production:
 ### Container images & releases
 
 CI (`.github/workflows/ci.yml`) builds and tests every push to `main`/`develop`, every
-tag, and every PR. The image is published to the **GitHub Container Registry** only when a
-commit lands on `main` (an accepted PR, once `main` is branch-protected) or a release tag
-is pushed. For deployment you don't clone this repo — **pull the image** and run it with a
-PostGIS database and your `.env` (see the Production section above):
+tag, and every PR. Every commit that lands on `main` cuts a **CalVer release**
+(`YYYY.MINOR.0`, git tag `vYYYY.MINOR.0`): the release job versions, builds & pushes both
+images (app + PostGIS db) to the **GitHub Container Registry**, scans them with Trivy, and
+creates the git tag + GitHub Release last — images are tagged `<release-version>`, `latest`,
+and `sha-<short>`. PRs and `develop` pushes never publish. For deployment you don't clone
+this repo — **pull the images** and run the app with a PostGIS database and your `.env`
+(see the Production section above):
 
 ```bash
-docker pull ghcr.io/terminschleuder/backend:latest      # from main
-docker pull ghcr.io/terminschleuder/backend:0.3alpha     # a release tag
+docker pull ghcr.io/terminschleuder/backend:latest            # from main
+docker pull ghcr.io/terminschleuder/backend:<release-version>  # a CalVer release tag
 ```
+
+Pin the **db** image by its release version
+(`ghcr.io/terminschleuder/backend-db:<release-version>`) rather than `latest` — `latest`
+floats with a Postgres major bump, which requires a dump/restore migration.
 
 Development follows a `develop` → `main` cycle: work lands on `develop`, PRs to `main`
 build and publish. Direct pushes to `main` are blocked by branch protection.
@@ -422,7 +429,7 @@ build and publish. Direct pushes to `main` are blocked by branch protection.
 ├── manage.py
 ├── docker-compose.yml        # db (PostGIS) + web (Django dev server)
 ├── Dockerfile                # app image: GDAL/GEOS/PROJ + gunicorn
-├── Dockerfile.db             # postgres:17 + postgis (arm64-friendly build)
+├── Dockerfile.db             # postgres:18 + postgis (arm64-friendly build)
 ├── requirements.txt
 ├── start.sh                  # thin `docker compose up` wrapper
 ├── config/                   # Django project: settings, urls, wsgi, asgi
