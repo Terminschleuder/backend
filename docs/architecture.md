@@ -18,7 +18,7 @@ group-based permissions and event ownership.
 image of this app". This constraint drives the whole runtime shape:
 
 - The **app image bundles** GDAL/GEOS/PROJ (installed via apt in `Dockerfile`).
-- The **database runs PostGIS** (a custom `postgres:17` + postgis image, `Dockerfile.db`).
+- The **database runs PostGIS** (a custom `postgres:18` + postgis image, `Dockerfile.db`).
 - The host never runs the app directly — all dev, tests, and prod run inside containers.
 - Production deploys by pulling the image; no host provisioning of GIS libraries.
 
@@ -30,14 +30,14 @@ flowchart LR
 
     subgraph compose["docker compose"]
         Web["web (Django + DRF)\nGDAL/GEOS/PROJ bundled\nrunserver (dev) / gunicorn (prod)"]
-        DB[("db (PostgreSQL 17 + PostGIS)\npgdata volume")]
+        DB[("db (PostgreSQL 18 + PostGIS)\npgdata volume")]
         Media[("media volume\n(event hero images)")]
         Web -->|postgis:// :5432| DB
         Web -.->|/app/media| Media
     end
 ```
 
-- **db** — PostgreSQL 17 with the PostGIS extension. Healthchecked with `pg_isready`; the
+- **db** — PostgreSQL 18 with the PostGIS extension. Healthchecked with `pg_isready`; the
   `pgdata` named volume persists data across restarts.
 - **web** — the Django app. In dev it runs `migrate` then `runserver` with the source
   bind-mounted for hot reload; the image's default `CMD` is `gunicorn` for production.
@@ -137,7 +137,7 @@ so DRF emits a `WWW-Authenticate` header and auth failures return **401** (not 4
 | Concern | Choice |
 | --- | --- |
 | Framework | Django 6.1 + Django REST Framework 3.18 |
-| Database | PostgreSQL 17 + PostGIS |
+| Database | PostgreSQL 18 + PostGIS |
 | Auth | djangorestframework-simplejwt (JWT) + custom hashed API keys |
 | GIS | GDAL / GEOS / PROJ (bundled in the image) |
 | Config | django-environ (`DATABASE_URL`), django-filter |
@@ -171,7 +171,11 @@ images are stored under `events/hero/`; the API exposes their absolute URL read-
 - Tests run inside the container against real PostGIS and real auth:
   `docker compose run --rm web python -m pytest -q`.
 - CI (`.github/workflows/ci.yml`) builds the compose stack and runs `check` → `migrate` →
-  `pytest` on every push/PR and on `alpha-*`/`v*` tags.
+  `pytest` on every push/PR. Every commit that lands on `main` cuts a **CalVer release**
+  (`YYYY.MINOR.0`, git tag `vYYYY.MINOR.0`): the release job versions, builds & pushes both
+  images (app + PostGIS db) to ghcr.io tagged `<release-version>`/`latest`/`sha-<short>`,
+  scans them with Trivy (app blocks, db is report-only), then creates the git tag +
+  GitHub Release last — idempotent on re-run. PRs and `develop` pushes never publish.
 
 ## Project layout
 
@@ -180,7 +184,7 @@ images are stored under `events/hero/`; the API exposes their absolute URL read-
 ├── manage.py
 ├── docker-compose.yml        # db (PostGIS) + web (Django dev server)
 ├── Dockerfile                # app image: GDAL/GEOS/PROJ + gunicorn
-├── Dockerfile.db             # postgres:17 + postgis (arm64-friendly build)
+├── Dockerfile.db             # postgres:18 + postgis (arm64-friendly build)
 ├── requirements.txt
 ├── start.sh                  # thin `docker compose up` wrapper
 ├── config/                   # Django project: settings, urls, wsgi, asgi, pagination
