@@ -1,32 +1,38 @@
+# Dependabot version updates — weekly PRs, minor/patch bumps grouped per
+# ecosystem; major bumps stay individual so breaking changes get their own
+# review. (Alerts + security updates are enabled in the repo Security
+# settings; this file only controls the proactive PR cadence.)
 version: 2
 updates:
-  # Runtime + test Python deps (requirements.txt).
-  # Target develop so bumps land on the develop branch (tested, no publish)
-  # and flow to main via a release PR — never publishing per-bump.
+  # requirements.txt (runtime + test pins).
   - package-ecosystem: pip
     directory: "/"
-    target-branch: develop
     schedule:
       interval: weekly
-    open-pull-requests-limit: 5
+      day: monday
     groups:
-      production:
-        dependency-type: "production"
-      development:
-        dependency-type: "development"
+      pip-minor-and-patch:
+        update-types: ["minor", "patch"]
 
-  # Base images (Dockerfile + Dockerfile.db, e.g. postgres major bumps).
+  # Base image of the app image (Dockerfile). NOTE: Dockerfile.db pins
+  # postgres:18 on purpose (a Postgres major bump needs a dump/restore
+  # migration) and is NOT auto-updated — Dependabot's docker ecosystem only
+  # watches a "Dockerfile" manifest per directory.
   - package-ecosystem: docker
     directory: "/"
-    target-branch: develop
     schedule:
       interval: weekly
-    open-pull-requests-limit: 5
+      day: monday
+    groups:
+      docker-minor-and-patch:
+        update-types: ["minor", "patch"]
 
-  # SHA-pinned GitHub Actions (ci.yml).
+  # Action pins in .github/workflows/*.yml.
   - package-ecosystem: github-actions
     directory: "/"
-    target-branch: develop
     schedule:
-      interval: monthly
-    open-pull-requests-limit: 5
+      interval: weekly
+      day: monday
+    groups:
+      actions-minor-and-patch:
+        update-types: ["minor", "patch"]
