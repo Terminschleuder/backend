@@ -34,6 +34,11 @@ env = environ.Env(
     # production deployment.
     CORS_ALLOW_ALL_ORIGINS=(bool, True),
     CORS_ALLOWED_ORIGINS=(list, []),
+    # Serve /media/ (uploaded hero images) through Django in production too.
+    # The pure-container deployment has no reverse proxy, so Django itself is
+    # the only thing that can serve the media volume. Set False when a proxy
+    # or CDN serves /media/ instead.
+    SERVE_MEDIA=(bool, True),
 )
 environ.Env.read_env(BASE_DIR / ".env")
 
@@ -61,6 +66,9 @@ CORS_ALLOWED_ORIGINS = env("CORS_ALLOWED_ORIGINS")
 # CORS-enabled. Credentials stay off (no cookies/JWT for the anon demo reader).
 CORS_ALLOW_METHODS = ["GET", "HEAD", "OPTIONS"]
 CORS_ALLOW_CREDENTIALS = False
+
+# Serve /media/ through Django (see the env schema above for the rationale).
+SERVE_MEDIA = env("SERVE_MEDIA")
 
 
 # Application definition
@@ -92,6 +100,11 @@ MIDDLEWARE = [
     # the CORS headers are added to every response (including error responses).
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    # WhiteNoise serves the collected static files (admin CSS/JS etc.) straight
+    # from gunicorn — required right after SecurityMiddleware so it can patch
+    # responses early. Static files are collected into STATIC_ROOT at image
+    # build time; no reverse proxy needed.
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -167,10 +180,14 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.1/howto/static-files/
 
 STATIC_URL = 'static/'
+# Where ``collectstatic`` gathers files at image build time; served in
+# production by WhiteNoise (see MIDDLEWARE) — no reverse proxy required.
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # Media — uploaded event hero images (and any future user files). The file lives
 # on a persistent Docker volume (see docker-compose.yml); only the path is in the
-# DB. Served by runserver under DEBUG, by the reverse proxy in production.
+# DB. Served by Django when SERVE_MEDIA is set (default: on), by a proxy or CDN
+# when the deployment prefers that.
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 

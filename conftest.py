@@ -76,21 +76,9 @@ def editors_group(db):
 def ingestion_group(db):
     """The ``ingestion`` group carrying the perms the extractor service account
     needs to read due sources, report runs, and submit observations."""
-    from django.contrib.auth.models import Permission
+    from events.provisioning import ensure_ingestion_group
 
-    group, _ = Group.objects.get_or_create(name="ingestion")
-    codenames = [
-        "view_eventsource",
-        "add_ingestionrun", "change_ingestionrun", "view_ingestionrun",
-        "add_eventobservation", "view_eventobservation",
-    ]
-    for codename in codenames:
-        group.permissions.add(
-            Permission.objects.get(
-                content_type__app_label="events", codename=codename
-            )
-        )
-    return group
+    return ensure_ingestion_group()
 
 
 @pytest.fixture

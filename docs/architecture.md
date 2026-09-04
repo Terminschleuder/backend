@@ -39,12 +39,21 @@ flowchart LR
 
 - **db** — PostgreSQL 18 with the PostGIS extension. Healthchecked with `pg_isready`; the
   `pgdata` named volume persists data across restarts.
-- **web** — the Django app. In dev it runs `migrate` then `runserver` with the source
-  bind-mounted for hot reload; the image's default `CMD` is `gunicorn` for production.
+- **web** — the Django app. The image's `ENTRYPOINT` (`docker-entrypoint.sh`) waits for the
+  database, runs migrations, then the idempotent `bootstrap` command (operator superuser
+  from `DJANGO_SUPERUSER_*` env, `ingestion` group, city gazetteer — never demo data)
+  before handing off to the command: `runserver` with the source bind-mounted for hot
+  reload in dev, the default `CMD` `gunicorn` in production. One-off jobs pass
+  `ENTRYPOINT_SKIP_TASKS=1` to skip migrate + bootstrap.
 - **media volume** — persists uploaded/generated event hero images at `/app/media` (mounted
-  over the source bind mount so uploads survive restarts). Served at `/media/` in dev
-  (`DEBUG=True`); in production the reverse proxy serves `/media/` from this volume. As with
+  over the source bind mount so uploads survive restarts). Served by Django at `/media/`
+  when `SERVE_MEDIA=True` (the default — the pure-container deployment has no reverse
+  proxy); set `SERVE_MEDIA=False` when a proxy/CDN serves the volume instead. As with
   `pgdata`, `docker compose down -v` would wipe it — use `down` (no `-v`).
+
+**Static files** are collected at image build time (`collectstatic` → `STATIC_ROOT`) and
+served in production by **WhiteNoise** directly from gunicorn — admin CSS/JS included, no
+reverse proxy needed.
 
 ## Apps
 
@@ -65,7 +74,7 @@ flowchart LR
     P -->|"/api/ingestion/"| Ing["events.ingestion_urls (due sources / runs / observations)"]
     P -->|"/api/"| API["events + locations (DRF routers)"]
     P -->|"/api/schema/"| Schema["OpenAPI 3 schema + Swagger/ReDoc"]
-    P -->|"/media/"| Media["uploaded media (dev only; prod via reverse proxy)"]
+    P -->|"/media/"| Media["uploaded media (when SERVE_MEDIA=True, the default)"]
     P -->|"/admin/"| Back["terminschleuder_admin (backoffice; anon -> /admin/login/)"]
     P -->|"/"| Landing["public marketing page (TemplateView, no auth)"]
     P -->|"/anything else"| Nf["404"]
@@ -160,6 +169,9 @@ Settings come from the environment via `django-environ`. Local dev is self-conta
 | `DATABASE_URL` | `postgis://terminschleuder:terminschleuder@127.0.0.1:5432/terminschleuder` | Compose overrides to the `db` host. |
 | `CORS_ALLOW_ALL_ORIGINS` | `True` | Read-only GET/HEAD/OPTIONS from any origin (demo-friendly). Set `False` in prod. |
 | `CORS_ALLOWED_ORIGINS` | `[]` | Allowed origins when `CORS_ALLOW_ALL_ORIGINS=False`. |
+| `SERVE_MEDIA` | `True` | Serve `/media/` through Django (no reverse proxy in the pure-container deployment). |
+| `DJANGO_SUPERUSER_USERNAME` / `_PASSWORD` / `_EMAIL` | unset | Read by the entrypoint's `bootstrap`: creates the operator superuser on a fresh DB; never overwrites. |
+| `ENTRYPOINT_SKIP_TASKS` | `0` | `1` = entrypoint skips migrate + bootstrap (one-off jobs against the image). |
 
 JWT access tokens live 15 min, refresh tokens 7 days, signed with `SECRET_KEY`.
 

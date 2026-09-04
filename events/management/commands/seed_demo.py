@@ -35,7 +35,7 @@ from datetime import datetime, timedelta, timezone as dt_tz
 from pathlib import Path
 
 from django.contrib.auth import get_user_model
-from django.contrib.auth.models import Group, Permission
+from django.contrib.auth.models import Permission
 from django.contrib.gis.geos import Point
 from django.core.files.base import ContentFile
 from django.core.management.base import BaseCommand
@@ -247,15 +247,11 @@ class Command(BaseCommand):
         return user
 
     def _ensure_ingestion_group(self):
-        group, _ = Group.objects.get_or_create(name="ingestion")
-        group.permissions.add(*Permission.objects.filter(
-            content_type__app_label="events",
-            codename__in=[
-                "view_eventsource",
-                "add_ingestionrun", "change_ingestionrun", "view_ingestionrun",
-                "add_eventobservation", "view_eventobservation",
-            ],
-        ))
+        # Delegates to the shared provisioning helper (single source of truth
+        # for the group + its permission set).
+        from events.provisioning import ensure_ingestion_group
+
+        ensure_ingestion_group()
 
     # --- JSON-driven domain data -------------------------------------------
 

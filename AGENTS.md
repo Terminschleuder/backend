@@ -70,6 +70,7 @@ docker compose exec web python manage.py makemigrations --check --dry-run
 docker compose exec web python manage.py seed_cities
 docker compose exec web python manage.py seed
 docker compose exec web python manage.py createsuperuser
+docker compose exec web python manage.py bootstrap   # idempotent prod provisioning (entrypoint runs it on start)
 docker compose exec web python manage.py create_service_account <name> --group <group>
 
 # Tear down
