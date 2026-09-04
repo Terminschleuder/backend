@@ -516,4 +516,5 @@ build and publish. Direct pushes to `main` are blocked by branch protection.
 
 ## License
 
-Apache License 2.0 — see [LICENSE](LICENSE).
+Apache License 2.0 — see [LICENSE](LICENSE). Third-party libraries and their
+licenses are inventoried in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
