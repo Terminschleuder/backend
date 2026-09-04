@@ -37,6 +37,10 @@ services:
     volumes:
       # Dev hot reload: mount the source over the copied app.
       - .:/app
+      # The bind mount above shadows the image's collectstatic output; this
+      # anonymous volume is seeded from the image on every `up`, keeping
+      # WhiteNoise able to serve admin assets (and its startup check quiet).
+      - /app/staticfiles
       # Persistent media (event hero images) — a named volume mounted over the
       # bind mount so uploads survive container rebuilds and aren't tied to the
       # host working tree. `down -v` would wipe it (avoid; see AGENTS.md).

@@ -9,7 +9,7 @@ Routes:
     /api/              — cities  (locations)
     /api/ingestion/    — extractor surface: due sources, runs, observations
     /api/schema/       — OpenAPI 3 schema (drf-spectacular) + Swagger UI / ReDoc
-    /media/            — uploaded media (dev only; prod via reverse proxy)
+    /media/            — uploaded media (served by Django when SERVE_MEDIA, default on)
 
 The backoffice is mounted at ``/admin/`` (not ``/``) so the admin's built-in
 catch-all view is confined to ``/admin/...`` and never swallows ``/media/...``
@@ -19,9 +19,9 @@ so unknown paths 404 instead of redirecting to login.
 """
 
 from django.conf import settings
-from django.conf.urls.static import static
 from django.urls import include, path
 from django.views.generic import TemplateView
+from django.views.static import serve
 from drf_spectacular.views import (
     SpectacularAPIView,
     SpectacularRedocView,
@@ -42,11 +42,19 @@ urlpatterns = [
     path("api/schema/redoc/", SpectacularRedocView.as_view(), name="redoc"),
 ]
 
-# Serve uploaded media (event hero images) in development. In production the
-# reverse proxy serves /media/ from the media volume. Listed before the admin
-# and landing routes so /media/... is matched here, not by a catch-all.
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+# Serve uploaded media (event hero images). Controlled by SERVE_MEDIA (default:
+# on) — the pure-container deployment has no reverse proxy, so Django serves
+# the media volume itself; set SERVE_MEDIA=False when a proxy/CDN takes over.
+# Listed before the admin and landing routes so /media/... is matched here, not
+# by a catch-all.
+#
+# NOTE: this wires django.views.static.serve directly instead of the
+# django.conf.urls.static.static() helper — that helper silently returns no
+# patterns unless DEBUG=True, which would 404 every hero image in production.
+if settings.SERVE_MEDIA:
+    urlpatterns += [
+        path("media/<path:path>", serve, {"document_root": settings.MEDIA_ROOT}),
+    ]
 
 urlpatterns += [
     # Backoffice (custom AdminSite). Its built-in catch-all is now confined to

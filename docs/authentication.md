@@ -141,21 +141,27 @@ perms) and requires all of them.
 | `events.add_eventobservation` | `POST /api/ingestion/observations/` (+ `bulk/`) |
 | `events.view_eventobservation` | `GET /api/ingestion/observations/` |
 
-Provision it once (create the group with the perms, create the extractor service account in
-it, then issue the account an API key):
+You don't hand-provision the group: the `bootstrap` management command (run by the
+container entrypoint on **every start**, idempotent) creates it with exactly this
+permission set via the shared helper `events.provisioning.ensure_ingestion_group()`.
+`create_service_account --group ingestion` ensures it too. The provisioning is
+**additive** — a re-run never strips an extra permission an operator granted on purpose.
+
+All that's left for the operator is the account + its key (secrets are shown once by
+design, so bootstrap deliberately does not create the service account from env):
 
 ```bash
-docker compose exec web python manage.py shell -c "
-from django.contrib.auth.models import Group, Permission
-g, _ = Group.objects.get_or_create(name='ingestion')
-g.permissions.add(*Permission.objects.filter(
-    content_type__app_label='events',
-    codename__in=['view_eventsource','add_ingestionrun','change_ingestionrun',
-                  'view_ingestionrun','add_eventobservation','view_eventobservation']))
-"
 docker compose exec web python manage.py create_service_account extractor --group ingestion \
   --description "External extraction system"
 # then issue the extractor an API key (via /api/auth/api-keys/ as an admin, or the backoffice)
+```
+
+On a pure-container hoster without `exec`, run the one-off job against the image directly
+(it skips migrate/bootstrap with `ENTRYPOINT_SKIP_TASKS=1`):
+
+```bash
+docker run --rm -e ... ghcr.io/terminschleuder/backend:<version> \
+  sh -c "ENTRYPOINT_SKIP_TASKS=1 python manage.py create_service_account extractor --group ingestion"
 ```
 
 The extractor then authenticates with `Authorization: Api-Key <raw-key>`. **Promotion and

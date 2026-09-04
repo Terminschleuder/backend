@@ -35,12 +35,19 @@ RUN pip install -r requirements.txt
 # Copy the application code.
 COPY . .
 
+# Collect static files (admin CSS/JS etc.) for WhiteNoise to serve in prod —
+# no reverse proxy needed. Needs no DB connection; done at build time so
+# container starts stay fast and don't write to the container layer.
+RUN python manage.py collectstatic --noinput
+
 # Non-root runtime user. uid/gid 1001 are fixed so operators can chown
 # mounted volumes (e.g. media) to match. MEDIA_ROOT is /app/media; pre-create
 # it owned by the app user so a fresh named volume inherits the ownership.
+# The chown sweep also covers staticfiles/ collected above.
 RUN groupadd --system --gid 1001 terminschleuder \
     && useradd --system --uid 1001 --gid 1001 --home-dir /app --shell /sbin/nologin terminschleuder \
     && mkdir -p /app/media \
+    && chmod +x /app/docker-entrypoint.sh \
     && chown -R 1001:1001 /app
 
 # OCI image metadata. CI (docker/metadata-action) appends source/revision/version.
@@ -52,6 +59,13 @@ LABEL org.opencontainers.image.title="terminschleuder-backend" \
 USER 1001:1001
 
 EXPOSE 8000
+
+# Self-bootstrapping start: wait for the DB, migrate, run the idempotent
+# `bootstrap` (superuser from env, ingestion group, city gazetteer), then
+# hand off to the CMD (gunicorn in prod; the dev compose override still works
+# because exec "$@" lands on the overridden command). One-off jobs pass
+# ENTRYPOINT_SKIP_TASKS=1 to skip the tasks.
+ENTRYPOINT ["sh", "/app/docker-entrypoint.sh"]
 
 # Production default. docker-compose overrides this to runserver for dev.
 CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3"]

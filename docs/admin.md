@@ -14,6 +14,12 @@ site root (`/`) is a public marketing landing page.
   docker compose exec web python manage.py createsuperuser
   ```
 
+  In production, the container's entrypoint does this for you: its `bootstrap` command
+  creates the operator superuser from the `DJANGO_SUPERUSER_USERNAME` /
+  `DJANGO_SUPERUSER_PASSWORD` env vars on first start (and never overwrites an existing
+  user — rotate the password here in the backoffice). See the
+  [fresh-host runbook](../README.md#fresh-host-runbook).
+
   (Superusers are staff.) The backoffice uses **Django session auth on the project's custom
   `User`** — the same user model the API authenticates — so there is no separate auth system.
 

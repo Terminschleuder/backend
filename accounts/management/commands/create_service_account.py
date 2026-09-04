@@ -45,7 +45,15 @@ class Command(BaseCommand):
         user.save()
 
         if group_name:
-            group, _ = Group.objects.get_or_create(name=group_name)
+            # The ingestion group is special: it carries the extractor's
+            # permission set (see events.provisioning). Other groups are
+            # created bare — their permissions are the operator's business.
+            if group_name == "ingestion":
+                from events.provisioning import ensure_ingestion_group
+
+                group = ensure_ingestion_group()
+            else:
+                group, _ = Group.objects.get_or_create(name=group_name)
             user.groups.add(group)
             self.stdout.write(f"Added to group: {group_name}")
 

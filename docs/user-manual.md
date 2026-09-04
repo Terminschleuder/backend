@@ -34,6 +34,12 @@ docker compose exec web python manage.py createsuperuser   # first staff login
 docker compose exec web python manage.py seed_cities      # powers ?near_city= (one-time)
 ```
 
+> The container entrypoint runs an idempotent `bootstrap` on every start, which already
+> provisions the `ingestion` group and the city gazetteer — and, if
+> `DJANGO_SUPERUSER_USERNAME`/`DJANGO_SUPERUSER_PASSWORD` are set (the production
+> pattern), the operator superuser too. The two `exec` lines above are only needed if
+> you want a differently-named superuser or to re-seed cities on demand.
+
 **Want a fully populated catalog to explore?** One command seeds coherent, JSON-driven demo
 data across every area — 20 organizations, 120 venues across 15 European cities, 8 categories,
 20 event sources (approved/disabled/unapproved), ingestion runs (succeeded/failed/running),

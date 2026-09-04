@@ -140,3 +140,124 @@ def test_service_account_can_obtain_jwt(db, api_client):
     me = api_client.get("/api/auth/me/")
     assert me.status_code == 200
     assert me.data["is_service_account"] is True
+
+
+# --- Bootstrap (fresh-volume production provisioning) -------------------------
+
+
+def _set_bootstrap_env(monkeypatch, *, password="first-boot-operator-2026"):
+    """Set the DJANGO_SUPERUSER_* env vars bootstrap reads (clearing any
+    leftovers so tests are independent of the host environment)."""
+    for var in (
+        "DJANGO_SUPERUSER_USERNAME",
+        "DJANGO_SUPERUSER_PASSWORD",
+        "DJANGO_SUPERUSER_EMAIL",
+    ):
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.setenv("DJANGO_SUPERUSER_USERNAME", "admin")
+    monkeypatch.setenv("DJANGO_SUPERUSER_PASSWORD", password)
+    monkeypatch.setenv("DJANGO_SUPERUSER_EMAIL", "admin@example.com")
+
+
+def _clear_bootstrap_env(monkeypatch):
+    for var in (
+        "DJANGO_SUPERUSER_USERNAME",
+        "DJANGO_SUPERUSER_PASSWORD",
+        "DJANGO_SUPERUSER_EMAIL",
+    ):
+        monkeypatch.delenv(var, raising=False)
+
+
+def _ingestion_codenames():
+    from django.contrib.auth.models import Group
+    from events.provisioning import INGESTION_CODENAMES, INGESTION_GROUP_NAME
+
+    group = Group.objects.get(name=INGESTION_GROUP_NAME)
+    return set(group.permissions.values_list("codename", flat=True)), set(INGESTION_CODENAMES)
+
+
+def test_bootstrap_creates_superuser_group_and_cities(db, monkeypatch):
+    from locations.models import City
+
+    _set_bootstrap_env(monkeypatch)
+    call_command("bootstrap", stdout=io.StringIO())
+
+    admin = User.objects.get(username="admin")
+    assert admin.is_superuser is True
+    assert admin.is_staff is True
+    assert admin.check_password("first-boot-operator-2026")
+
+    codenames, expected = _ingestion_codenames()
+    assert codenames == expected
+
+    assert City.objects.count() > 0
+
+
+def test_bootstrap_is_idempotent(db, monkeypatch):
+    from locations.models import City
+
+    _set_bootstrap_env(monkeypatch)
+    call_command("bootstrap", stdout=io.StringIO())
+    call_command("bootstrap", stdout=io.StringIO())
+
+    assert User.objects.filter(username="admin").count() == 1
+    assert User.objects.get(username="admin").check_password("first-boot-operator-2026")
+
+    codenames, expected = _ingestion_codenames()
+    assert codenames == expected
+    city_count = City.objects.count()
+    assert city_count > 0
+    # seed_cities is an upsert keyed on geoname_id: re-running adds nothing.
+    call_command("bootstrap", stdout=io.StringIO())
+    assert City.objects.count() == city_count
+
+
+def test_bootstrap_never_overwrites_existing_superuser(db, monkeypatch):
+    _set_bootstrap_env(monkeypatch)
+    User.objects.create_superuser(
+        "admin", "admin@example.com", "original-password-2026"
+    )
+    monkeypatch.setenv("DJANGO_SUPERUSER_PASSWORD", "env-says-something-else-2026")
+
+    call_command("bootstrap", stdout=io.StringIO())
+
+    admin = User.objects.get(username="admin")
+    assert admin.check_password("original-password-2026")
+    assert not admin.check_password("env-says-something-else-2026")
+
+
+def test_bootstrap_without_env_skips_superuser_but_provisions_rest(db, monkeypatch):
+    from django.contrib.auth.models import Group
+    from locations.models import City
+
+    from events.provisioning import INGESTION_GROUP_NAME
+
+    _clear_bootstrap_env(monkeypatch)
+    out = io.StringIO()
+    call_command("bootstrap", stdout=out)
+
+    assert User.objects.filter(is_superuser=True).count() == 0
+    assert "DJANGO_SUPERUSER_USERNAME not set" in out.getvalue()
+    assert Group.objects.filter(name=INGESTION_GROUP_NAME).exists()
+    assert City.objects.count() > 0
+
+
+def test_bootstrap_seeds_no_demo_data(db, monkeypatch):
+    from events.models import Event
+
+    _set_bootstrap_env(monkeypatch)
+    call_command("bootstrap", stdout=io.StringIO())
+
+    assert Event.objects.count() == 0
+    assert not User.objects.filter(username="demo").exists()
+
+
+def test_create_service_account_ingestion_group_carries_permissions(db):
+    from events.provisioning import INGESTION_CODENAMES
+
+    call_command("create_service_account", "extractor", group="ingestion", stdout=io.StringIO())
+    bot = User.objects.get(username="extractor")
+    assert bot.is_service_account is True
+    assert set(
+        bot.groups.get(name="ingestion").permissions.values_list("codename", flat=True)
+    ) == set(INGESTION_CODENAMES)
