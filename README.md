@@ -150,8 +150,11 @@ docker compose down            # stops & removes containers; the pgdata + media 
 
 > Use `down` **without** `-v`. `docker compose down -v` wipes the `pgdata` volume — and
 > with it the seeded 2131-city gazetteer — as well as the `media` volume (event hero
-images). Only run `down -v` for a deliberate full reset; the entrypoint's bootstrap
-re-seeds the cities automatically on the next start.
+> images). Only run `down -v` for a deliberate full reset; the entrypoint's bootstrap
+> re-seeds the cities automatically on the next start. If you only need the `pgdata`
+> volume gone (e.g. after a Postgres major bump), `down` plus
+> `docker volume rm backend_pgdata` is the targeted form — see
+> [PostgreSQL major upgrades](#postgresql-major-upgrades).
 
 `start.sh` also runs `docker compose down` on exit, so Ctrl-C cleans up automatically.
 
@@ -469,7 +472,47 @@ docker pull ghcr.io/terminschleuder/backend:<release-version>  # a CalVer releas
 
 Pin the **db** image by its release version
 (`ghcr.io/terminschleuder/backend-db:<release-version>`) rather than `latest` — `latest`
-floats with a Postgres major bump, which requires a dump/restore migration.
+floats with a Postgres major bump, which requires the dump/restore migration described in
+[PostgreSQL major upgrades](#postgresql-major-upgrades) below.
+
+### PostgreSQL major upgrades
+
+`Dockerfile.db` is deliberately pinned to a Postgres **major** (`FROM postgres:18`). The
+pin is manual: Dependabot's docker ecosystem only watches `Dockerfile`, never
+`Dockerfile.db`, so a major bump never arrives as a routine dependency update — it is a
+**breaking data change** by design. Bumping it (e.g. to `postgres:19`) must follow this
+runbook, and the new image must not reach `main` before the plan to migrate its data
+does.
+
+**Local dev** — the `pgdata` volume is disposable. After a major bump (or any
+`database files are incompatible with server` error) simply recreate it:
+
+```bash
+docker compose down                 # no -v; the media volume is never touched
+docker volume rm backend_pgdata     # recreate from scratch…
+./start.sh                          # …entrypoint re-runs migrate + bootstrap
+```
+
+The 2131-city gazetteer re-seeds automatically; local demo data and users are lost (fine
+for dev — recreate them with `seed_demo` / `createsuperuser` as needed).
+
+**Prod** — real data, so a dump/restore is mandatory:
+
+1. **Dump** from the running old-version container (or `docker exec` into it if the
+   hoster allows `exec`):
+   ```bash
+   docker run --rm --network <prod-network> \
+     -v <prod-pgdata>:/var/lib/postgresql/data \
+     ghcr.io/terminschleuder/backend-db:<old-release-version> \
+     pg_dump -U terminschleuder -Fc terminschleuder > dump.pg
+   ```
+2. Stop the stack, keep the **old** volume until the restore is verified.
+3. Start the new `backend-db:<new-release-version>` against a **fresh** volume (the
+   entrypoint creates the cluster; `POSTGRES_USER/PASSWORD/DB` env as before).
+4. **Restore** the dump (`pg_restore -U terminschleuder -d terminschleuder dump.pg`),
+   then start the backend — its entrypoint runs `migrate` for any outstanding
+   migrations.
+5. **Verify** (city count, app boots, healthcheck green), then remove the old volume.
 
 Development follows a `develop` → `main` cycle: work lands on `develop`, PRs to `main`
 build and publish. Direct pushes to `main` are blocked by branch protection.
