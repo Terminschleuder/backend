@@ -1,5 +1,9 @@
 import io
+import subprocess
+import sys
 
+import jwt
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
 
@@ -62,6 +66,54 @@ def test_jwt_with_invalid_credentials_fails(db, api_client, user):
         format="json",
     )
     assert response.status_code == 401
+
+
+def test_jwt_signing_key_defaults_to_secret_key(settings):
+    """Without DJANGO_JWT_SIGNING_KEY the tokens are signed with SECRET_KEY."""
+    assert settings.SIMPLE_JWT["SIGNING_KEY"] == settings.SECRET_KEY
+
+
+def test_jwt_signing_key_env_var_overrides_secret_key():
+    """DJANGO_JWT_SIGNING_KEY, when set, replaces SECRET_KEY for JWT signing.
+
+    Settings are read once at import time (simplejwt caches its config at
+    first use), so the override is exercised in a fresh interpreter: with the
+    env var set, importing config.settings must yield it as the signing key.
+    """
+    separate_key = "separate-jwt-signing-key"
+    code = (
+        "import os; "
+        f"os.environ['DJANGO_JWT_SIGNING_KEY'] = {separate_key!r}; "
+        "from config import settings as project_settings; "
+        "assert project_settings.SIMPLE_JWT['SIGNING_KEY'] == "
+        f"{separate_key!r}, project_settings.SIMPLE_JWT['SIGNING_KEY']; "
+        "assert project_settings.SIMPLE_JWT['SIGNING_KEY'] != "
+        "project_settings.SECRET_KEY"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", code],
+        cwd=settings.BASE_DIR,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+
+
+def test_jwt_access_token_is_signed_with_configured_signing_key(db, api_client, user):
+    """The endpoint actually signs tokens with settings.SIMPLE_JWT['SIGNING_KEY']."""
+    response = api_client.post(
+        "/api/auth/token/",
+        {"username": "alice", "password": "password123"},
+        format="json",
+    )
+    assert response.status_code == 200
+
+    claims = jwt.decode(
+        response.data["access"],
+        settings.SIMPLE_JWT["SIGNING_KEY"],
+        algorithms=["HS256"],
+    )
+    assert int(claims["user_id"]) == user.pk
 
 
 # --- API keys -----------------------------------------------------------------
