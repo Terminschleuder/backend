@@ -38,7 +38,11 @@ flowchart LR
 ```
 
 - **db** — PostgreSQL 18 with the PostGIS extension. Healthchecked with `pg_isready`; the
-  `pgdata` named volume persists data across restarts.
+  `pgdata` named volume persists data across restarts. The image (`Dockerfile.db`) is
+  deliberately pinned to a Postgres **major** and is not auto-updated by Dependabot — a
+  major bump is a breaking data change; local dev recreates the disposable `pgdata`
+  volume, production runs the dump/restore runbook in `README.md` → "PostgreSQL major
+  upgrades".
 - **web** — the Django app. The image's `ENTRYPOINT` (`docker-entrypoint.sh`) waits for the
   database, runs migrations, then the idempotent `bootstrap` command (operator superuser
   from `DJANGO_SUPERUSER_*` env, `ingestion` group, city gazetteer — never demo data)

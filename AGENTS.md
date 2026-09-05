@@ -74,8 +74,9 @@ docker compose exec web python manage.py bootstrap   # idempotent prod provision
 docker compose exec web python manage.py create_service_account <name> --group <group>
 
 # Tear down
-docker compose down        # keep the pgdata volume
-docker compose down -v     # also wipe the DB volume (full reset)
+docker compose down        # keep the pgdata + media volumes
+docker compose down -v     # wipes BOTH volumes — only for a deliberate full reset
+                           # (gazetteer re-seeds on next start; media is gone for good)
 ```
 
 ## Verification gate (do this before committing)
@@ -91,6 +92,11 @@ a generated migration without `--check --dry-run` reporting "No changes detected
 
 ## Known gotchas (don't re-learn these the hard way)
 
+- **`Dockerfile.db` is pinned to `postgres:18` on purpose.** Dependabot does not watch
+  it (docker ecosystem covers `Dockerfile` only). A Postgres major bump is a **breaking
+  data change** — never a routine update: follow the "PostgreSQL major upgrades"
+  runbook in `README.md` (local dev: recreate the disposable `pgdata` volume; prod:
+  dump/restore) **before** a bumped image lands on `main`.
 - **DRF 3.18 auth-failure 403 vs 401:** `handle_exception` coerces to 403 when
   `get_authenticate_header` returns `None`. Keep `JWTAuthentication` **first** in
   `DEFAULT_AUTHENTICATION_CLASSES` so auth failures return 401 with a `WWW-Authenticate`
