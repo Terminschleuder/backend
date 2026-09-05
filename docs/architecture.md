@@ -59,6 +59,10 @@ flowchart LR
 served in production by **WhiteNoise** directly from gunicorn — admin CSS/JS included, no
 reverse proxy needed.
 
+Deploying all four production containers (backend, db, frontend, extractor) on a hoster
+without docker compose — env vars, networking, volumes, start order — is covered in
+[deployment.md](deployment.md).
+
 ## Apps
 
 | App | Responsibility |

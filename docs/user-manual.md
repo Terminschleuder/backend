@@ -140,6 +140,16 @@ The command prints a **one-time app secret** — but for a long-lived extractor 
 Hand that raw key to the extractor integrator. They'll send it as
 `Authorization: Api-Key <raw-key>`. See [Authentication → the ingestion group](authentication.md#the-ingestion-group).
 
+> **No shell access?** The `docker compose exec`/`manage.py` commands above need a
+> compose host. On a production hoster that only runs containers, the backoffice path
+> covers the same ground entirely through `/admin/`: create the `ingestion` group under
+> *Groups*, create the `extractor` service account and put it in that group under
+> *Service accounts*, then mint its API key under *API keys*. The bootstrap command the
+> entrypoint runs on every start already creates the `ingestion` group for you, so 2a
+> is typically already done. See
+> [deployment.md → Extractor](deployment.md#4-extractor-and-its-api-key)
+> for the full production onboarding walk-through.
+
 ### 2c. Register an organization's source and approve it
 
 Nothing is extracted until an operator approves a source.

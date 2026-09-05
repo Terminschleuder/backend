@@ -18,5 +18,6 @@ which GitHub renders inline).
 | [Authentication](authentication.md) | JWT, API keys, service/system users, groups, permissions, the `ingestion` group, and event ownership. |
 | [Geospatial & cities](geospatial.md) | PostGIS location storage, proximity search (online excluded), `?near_city=`, the city catalog and seeding. |
 | [Admin backoffice](admin.md) | The `admin` app: custom `AdminSite` at `/admin/`, service-account & API-key issuance, organizations, sources, ingestion runs, observation promotion, event lifecycle. |
+| [Deployment](deployment.md) | Running the four containers on a hoster without docker compose: topology, per-container env vars/ports/volumes, start order, verification, troubleshooting. Start here if you *deploy* the app. |
 
 > For the quickstart (running it locally), see the [top-level README](../README.md).
