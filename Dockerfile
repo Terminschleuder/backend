@@ -5,7 +5,7 @@
 # Runs as a non-root user; the writable /app/media is pre-created with the
 # right ownership so uploads work under a named volume (and under a bind mount
 # the operator chowns to uid 1001).
-FROM python:3.14-slim-bookworm
+FROM python:3.15-slim-bookworm
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
